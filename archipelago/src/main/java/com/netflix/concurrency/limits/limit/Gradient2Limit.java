@@ -1,17 +1,14 @@
 /**
  * Copyright 2018 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
  */
 package com.netflix.concurrency.limits.limit;
 
@@ -77,186 +74,32 @@ import java.util.function.Function;
  */
 public final class Gradient2Limit extends AbstractLimit {
     private static final Logger LOG = LoggerFactory.getLogger(Gradient2Limit.class);
-
-    public static class Builder {
-        private int initialLimit   = 20;
-        private int minLimit       = 20;
-        private int maxConcurrency = 200;
-
-        private double                     smoothing    = 0.2;
-        private Function<Integer, Integer> queueSize    = concurrency -> 4;
-        private MetricRegistry             registry     = EmptyMetricRegistry.INSTANCE;
-        private int                        longWindow   = 600;
-        private double                     rttTolerance = 1.5;
-
-        /**
-         * Initial limit used by the limiter
-         * 
-         * @param initialLimit
-         * @return Chainable builder
-         */
-        public Builder initialLimit(int initialLimit) {
-            this.initialLimit = initialLimit;
-            return this;
-        }
-
-        /**
-         * Minimum concurrency limit allowed. The minimum helps prevent the algorithm
-         * from adjust the limit too far down. Note that this limit is not desirable
-         * when use as backpressure for batch apps.
-         *
-         * @param minLimit
-         * @return Chainable builder
-         */
-        public Builder minLimit(int minLimit) {
-            this.minLimit = minLimit;
-            return this;
-        }
-
-        /**
-         * Maximum allowable concurrency. Any estimated concurrency will be capped at
-         * this value
-         * 
-         * @param maxConcurrency
-         * @return Chainable builder
-         */
-        public Builder maxConcurrency(int maxConcurrency) {
-            this.maxConcurrency = maxConcurrency;
-            return this;
-        }
-
-        /**
-         * Fixed amount the estimated limit can grow while latencies remain low
-         * 
-         * @param queueSize
-         * @return Chainable builder
-         */
-        public Builder queueSize(int queueSize) {
-            this.queueSize = (ignore) -> queueSize;
-            return this;
-        }
-
-        /**
-         * Function to dynamically determine the amount the estimated limit can grow
-         * while latencies remain low as a function of the current limit.
-         * 
-         * @param queueSize
-         * @return Chainable builder
-         */
-        public Builder queueSize(Function<Integer, Integer> queueSize) {
-            this.queueSize = queueSize;
-            return this;
-        }
-
-        /**
-         * Tolerance for changes in minimum latency.
-         * 
-         * @param rttTolerance Value {@literal >}= 1.0 indicating how much change in
-         *                     minimum latency is acceptable before reducing the limit.
-         *                     For example, a value of 2.0 means that a 2x increase in
-         *                     latency is acceptable.
-         * @return Chainable builder
-         */
-        public Builder rttTolerance(double rttTolerance) {
-            Preconditions.checkArgument(rttTolerance >= 1.0, "Tolerance must be >= 1.0");
-            this.rttTolerance = rttTolerance;
-            return this;
-        }
-
-        /**
-         * Maximum multiple of the fast window after which we need to reset the limiter
-         * 
-         * @param multiplier
-         * @return
-         */
-        @Deprecated
-        public Builder driftMultiplier(int multiplier) {
-            return this;
-        }
-
-        /**
-         * Smoothing factor to limit how aggressively the estimated limit can shrink
-         * when queuing has been detected.
-         * 
-         * @param smoothing Value of 0.0 to 1.0 where 1.0 means the limit is completely
-         *                  replicated by the new estimate.
-         * @return Chainable builder
-         */
-        public Builder smoothing(double smoothing) {
-            this.smoothing = smoothing;
-            return this;
-        }
-
-        /**
-         * Registry for reporting metrics about the limiter's internal state.
-         * 
-         * @param registry
-         * @return Chainable builder
-         */
-        public Builder metricRegistry(MetricRegistry registry) {
-            this.registry = registry;
-            return this;
-        }
-
-        @Deprecated
-        public Builder shortWindow(int n) {
-            return this;
-        }
-
-        public Builder longWindow(int n) {
-            this.longWindow = n;
-            return this;
-        }
-
-        public Gradient2Limit build() {
-            return new Gradient2Limit(this);
-        }
-    }
-
-    public static Builder newBuilder() {
-        return new Builder();
-    }
-
-    public static Gradient2Limit newDefault() {
-        return newBuilder().build();
-    }
-
-    /**
-     * Estimated concurrency limit based on our algorithm
-     */
-    private volatile double estimatedLimit;
-
-    /**
-     * Tracks a measurement of the short time, and more volatile, RTT meant to
-     * represent the current system latency
-     */
-    private long lastRtt;
-
     /**
      * Tracks a measurement of the long term, less volatile, RTT meant to represent
      * the baseline latency. When the system is under load this number is expect to
      * trend higher.
      */
     private final Measurement longRtt;
-
     /**
      * Maximum allowed limit providing an upper bound failsafe
      */
     private final int maxLimit;
-
     private final int minLimit;
-
     private final Function<Integer, Integer> queueSize;
-
     private final double smoothing;
-
     private final SampleListener longRttSampleListener;
-
     private final SampleListener shortRttSampleListener;
-
     private final SampleListener queueSizeSampleListener;
-
     private final double tolerance;
+    /**
+     * Estimated concurrency limit based on our algorithm
+     */
+    private volatile double estimatedLimit;
+    /**
+     * Tracks a measurement of the short time, and more volatile, RTT meant to
+     * represent the current system latency
+     */
+    private long lastRtt;
 
     private Gradient2Limit(Builder builder) {
         super(builder.initialLimit);
@@ -273,6 +116,14 @@ public final class Gradient2Limit extends AbstractLimit {
         this.longRttSampleListener = builder.registry.distribution(MetricIds.MIN_RTT_NAME);
         this.shortRttSampleListener = builder.registry.distribution(MetricIds.WINDOW_MIN_RTT_NAME);
         this.queueSizeSampleListener = builder.registry.distribution(MetricIds.WINDOW_QUEUE_SIZE_NAME);
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    public static Gradient2Limit newDefault() {
+        return newBuilder().build();
     }
 
     @Override
@@ -334,5 +185,140 @@ public final class Gradient2Limit extends AbstractLimit {
     @Override
     public String toString() {
         return "GradientLimit [limit=" + (int) estimatedLimit + "]";
+    }
+
+    public static class Builder {
+        private int initialLimit   = 20;
+        private int minLimit       = 20;
+        private int maxConcurrency = 200;
+
+        private double                     smoothing    = 0.2;
+        private Function<Integer, Integer> queueSize    = concurrency -> 4;
+        private MetricRegistry             registry     = EmptyMetricRegistry.INSTANCE;
+        private int                        longWindow   = 600;
+        private double                     rttTolerance = 1.5;
+
+        /**
+         * Initial limit used by the limiter
+         *
+         * @param initialLimit
+         * @return Chainable builder
+         */
+        public Builder initialLimit(int initialLimit) {
+            this.initialLimit = initialLimit;
+            return this;
+        }
+
+        /**
+         * Minimum concurrency limit allowed. The minimum helps prevent the algorithm
+         * from adjust the limit too far down. Note that this limit is not desirable
+         * when use as backpressure for batch apps.
+         *
+         * @param minLimit
+         * @return Chainable builder
+         */
+        public Builder minLimit(int minLimit) {
+            this.minLimit = minLimit;
+            return this;
+        }
+
+        /**
+         * Maximum allowable concurrency. Any estimated concurrency will be capped at
+         * this value
+         *
+         * @param maxConcurrency
+         * @return Chainable builder
+         */
+        public Builder maxConcurrency(int maxConcurrency) {
+            this.maxConcurrency = maxConcurrency;
+            return this;
+        }
+
+        /**
+         * Fixed amount the estimated limit can grow while latencies remain low
+         *
+         * @param queueSize
+         * @return Chainable builder
+         */
+        public Builder queueSize(int queueSize) {
+            this.queueSize = (ignore) -> queueSize;
+            return this;
+        }
+
+        /**
+         * Function to dynamically determine the amount the estimated limit can grow
+         * while latencies remain low as a function of the current limit.
+         *
+         * @param queueSize
+         * @return Chainable builder
+         */
+        public Builder queueSize(Function<Integer, Integer> queueSize) {
+            this.queueSize = queueSize;
+            return this;
+        }
+
+        /**
+         * Tolerance for changes in minimum latency.
+         *
+         * @param rttTolerance Value {@literal >}= 1.0 indicating how much change in
+         *                     minimum latency is acceptable before reducing the limit.
+         *                     For example, a value of 2.0 means that a 2x increase in
+         *                     latency is acceptable.
+         * @return Chainable builder
+         */
+        public Builder rttTolerance(double rttTolerance) {
+            Preconditions.checkArgument(rttTolerance >= 1.0, "Tolerance must be >= 1.0");
+            this.rttTolerance = rttTolerance;
+            return this;
+        }
+
+        /**
+         * Maximum multiple of the fast window after which we need to reset the limiter
+         *
+         * @param multiplier
+         * @return
+         */
+        @Deprecated
+        public Builder driftMultiplier(int multiplier) {
+            return this;
+        }
+
+        /**
+         * Smoothing factor to limit how aggressively the estimated limit can shrink
+         * when queuing has been detected.
+         *
+         * @param smoothing Value of 0.0 to 1.0 where 1.0 means the limit is completely
+         *                  replicated by the new estimate.
+         * @return Chainable builder
+         */
+        public Builder smoothing(double smoothing) {
+            this.smoothing = smoothing;
+            return this;
+        }
+
+        /**
+         * Registry for reporting metrics about the limiter's internal state.
+         *
+         * @param registry
+         * @return Chainable builder
+         */
+        public Builder metricRegistry(MetricRegistry registry) {
+            this.registry = registry;
+            return this;
+        }
+
+        @Deprecated
+        public Builder shortWindow(int n) {
+            return this;
+        }
+
+        public Builder longWindow(int n) {
+            this.longWindow = n;
+            return this;
+        }
+
+        public Gradient2Limit build() {
+            return new Gradient2Limit(this);
+        }
     }
 }

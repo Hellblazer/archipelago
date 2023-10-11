@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
-import static com.hellblazer.archipelago.Wrapped.wrapped;
+import static com.hellblazer.archipelago.Utils.wrapped;
 
 /**
  * @author hal.hildebrand

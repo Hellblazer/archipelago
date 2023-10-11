@@ -85,7 +85,7 @@ public class MemberImpl implements Member {
 
     @Override
     public String toString() {
-        return "Member" + id + "";
+        return "Member" + id;
     }
 
     /**

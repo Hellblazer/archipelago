@@ -25,8 +25,8 @@ import java.util.stream.Stream;
  */
 public interface Context<T extends Member> {
 
-    double DEFAULT_EPSILON = 0.99999;
-    static final String RING_HASH_TEMPLATE = "%s-%s-%s";
+    double DEFAULT_EPSILON    = 0.99999;
+    String RING_HASH_TEMPLATE = "%s-%s-%s";
 
     static Digest hashFor(Digest ctxId, int ring, Digest d) {
         return d.prefix(ctxId, ring);

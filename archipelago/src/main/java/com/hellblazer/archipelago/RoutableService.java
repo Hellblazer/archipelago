@@ -44,7 +44,6 @@ public class RoutableService<Service> {
         if (context == null) {
             responseObserver.onError(new StatusRuntimeException(Status.NOT_FOUND));
             log.error("Null context");
-            return;
         } else {
             Service service = services.get(context);
             if (service == null) {

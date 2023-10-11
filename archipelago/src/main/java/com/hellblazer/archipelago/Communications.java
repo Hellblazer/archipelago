@@ -11,8 +11,8 @@ import com.hellblazer.cryptography.hash.Digest;
 
 /**
  * @author hal.hildebrand
- * 
- *         A routable communications overlay
+ *
+ * A routable communications overlay
  */
 public interface Communications<Client extends Link, Service> extends Router.ClientConnector<Client> {
 

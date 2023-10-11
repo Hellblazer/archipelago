@@ -7,6 +7,7 @@
 package com.hellblazer.archipelago;
 
 import com.hellblazer.archipelago.membership.Member;
+import com.hellblazer.archipelago.protocols.EndpointProvider;
 import com.hellblazer.cryptography.ssl.CertificateValidator;
 import io.netty.handler.ssl.ClientAuth;
 

@@ -10,10 +10,8 @@ import com.hellblazer.cryptography.hash.Digest;
 
 import java.util.List;
 
-
 /**
  * @author hal.hildebrand
- *
  */
 public interface ViewChangeListener {
     void viewChange(Digest viewId, List<Digest> joins, List<Digest> leaves);

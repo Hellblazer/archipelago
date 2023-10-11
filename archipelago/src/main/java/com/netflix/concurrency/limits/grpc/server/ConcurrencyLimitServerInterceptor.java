@@ -1,17 +1,14 @@
 /**
  * Copyright 2018 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
  */
 package com.netflix.concurrency.limits.grpc.server;
 
@@ -32,61 +29,13 @@ import java.util.function.Supplier;
  * has been reached.
  */
 public class ConcurrencyLimitServerInterceptor implements ServerInterceptor {
-    public static class Builder {
-        private final Limiter<GrpcServerRequestContext> grpcLimiter;
-        private Supplier<Status>                        statusSupplier  = () -> LIMIT_EXCEEDED_STATUS;
-        private Supplier<Metadata>                      trailerSupplier = Metadata::new;
-
-        public Builder(Limiter<GrpcServerRequestContext> grpcLimiter) {
-            Preconditions.checkArgument(grpcLimiter != null, "grpcLimiter cannot be null");
-            this.grpcLimiter = grpcLimiter;
-        }
-
-        public ConcurrencyLimitServerInterceptor build() {
-            return new ConcurrencyLimitServerInterceptor(this);
-        }
-
-        /**
-         * Supplier for the Status code to return when the concurrency limit has been
-         * reached. A custom supplier could augment the response to include additional
-         * information about the server or limit. The supplier can also be used to
-         * trigger additional metrics. By default will return an UNAVAILABLE.
-         * 
-         * @param supplier
-         * @return Chainable builder
-         */
-        public Builder statusSupplier(Supplier<Status> supplier) {
-            Preconditions.checkArgument(supplier != null, "statusSupplier cannot be null");
-            this.statusSupplier = supplier;
-            return this;
-        }
-
-        /**
-         * Supplier for the Metadata to return when the concurrency limit has been
-         * reached. A custom supplier may include additional metadata about the server
-         * or limit
-         * 
-         * @param supplier
-         * @return Chainable builder
-         */
-        public Builder trailerSupplier(Supplier<Metadata> supplier) {
-            Preconditions.checkArgument(supplier != null, "trailerSupplier cannot be null");
-            this.trailerSupplier = supplier;
-            return this;
-        }
-    }
-
-    private static final Status LIMIT_EXCEEDED_STATUS = Status.UNAVAILABLE.withDescription("Server concurrency limit reached");
-    private static final Logger LOG                   = LoggerFactory.getLogger(ConcurrencyLimitServerInterceptor.class);
-
-    public static Builder newBuilder(Limiter<GrpcServerRequestContext> grpcLimiter) {
-        return new Builder(grpcLimiter);
-    }
-
+    private static final Status LIMIT_EXCEEDED_STATUS = Status.UNAVAILABLE.withDescription(
+    "Server concurrency limit reached");
+    private static final Logger LOG                   = LoggerFactory.getLogger(
+    ConcurrencyLimitServerInterceptor.class);
     private final Limiter<GrpcServerRequestContext> grpcLimiter;
     private final Supplier<Status>                  statusSupplier;
-    private Supplier<Metadata>                      trailerSupplier;
-
+    private final Supplier<Metadata>                trailerSupplier;
     /**
      * @deprecated Use {@link ConcurrencyLimitServerInterceptor#newBuilder(Limiter)}
      * @param grpcLimiter
@@ -98,19 +47,23 @@ public class ConcurrencyLimitServerInterceptor implements ServerInterceptor {
         this.statusSupplier = () -> LIMIT_EXCEEDED_STATUS;
         this.trailerSupplier = Metadata::new;
     }
-
     private ConcurrencyLimitServerInterceptor(Builder builder) {
         this.grpcLimiter = builder.grpcLimiter;
         this.statusSupplier = builder.statusSupplier;
         this.trailerSupplier = builder.trailerSupplier;
     }
 
+    public static Builder newBuilder(Limiter<GrpcServerRequestContext> grpcLimiter) {
+        return new Builder(grpcLimiter);
+    }
+
     @Override
     public <ReqT, RespT> Listener<ReqT> interceptCall(final ServerCall<ReqT, RespT> call, final Metadata headers,
                                                       final ServerCallHandler<ReqT, RespT> next) {
 
-        if (!call.getMethodDescriptor().getType().serverSendsOneMessage() ||
-            !call.getMethodDescriptor().getType().clientSendsOneMessage()) {
+        if (!call.getMethodDescriptor().getType().serverSendsOneMessage() || !call.getMethodDescriptor()
+                                                                                  .getType()
+                                                                                  .clientSendsOneMessage()) {
             return next.startCall(call, headers);
         }
 
@@ -207,5 +160,49 @@ public class ConcurrencyLimitServerInterceptor implements ServerInterceptor {
             return new Listener<ReqT>() {
             };
         });
+    }
+
+    public static class Builder {
+        private final Limiter<GrpcServerRequestContext> grpcLimiter;
+        private       Supplier<Status>                  statusSupplier  = () -> LIMIT_EXCEEDED_STATUS;
+        private       Supplier<Metadata>                trailerSupplier = Metadata::new;
+
+        public Builder(Limiter<GrpcServerRequestContext> grpcLimiter) {
+            Preconditions.checkArgument(grpcLimiter != null, "grpcLimiter cannot be null");
+            this.grpcLimiter = grpcLimiter;
+        }
+
+        public ConcurrencyLimitServerInterceptor build() {
+            return new ConcurrencyLimitServerInterceptor(this);
+        }
+
+        /**
+         * Supplier for the Status code to return when the concurrency limit has been
+         * reached. A custom supplier could augment the response to include additional
+         * information about the server or limit. The supplier can also be used to
+         * trigger additional metrics. By default will return an UNAVAILABLE.
+         *
+         * @param supplier
+         * @return Chainable builder
+         */
+        public Builder statusSupplier(Supplier<Status> supplier) {
+            Preconditions.checkArgument(supplier != null, "statusSupplier cannot be null");
+            this.statusSupplier = supplier;
+            return this;
+        }
+
+        /**
+         * Supplier for the Metadata to return when the concurrency limit has been
+         * reached. A custom supplier may include additional metadata about the server
+         * or limit
+         *
+         * @param supplier
+         * @return Chainable builder
+         */
+        public Builder trailerSupplier(Supplier<Metadata> supplier) {
+            Preconditions.checkArgument(supplier != null, "trailerSupplier cannot be null");
+            this.trailerSupplier = supplier;
+            return this;
+        }
     }
 }

@@ -6,13 +6,12 @@
  */
 package com.hellblazer.archipelago.ring;
 
-import java.util.Optional;
-
 import com.google.common.util.concurrent.ListenableFuture;
+
+import java.util.Optional;
 
 /**
  * @author hal.hildebrand
- *
  */
 @FunctionalInterface
 public interface Handler<M, T, Comm> {

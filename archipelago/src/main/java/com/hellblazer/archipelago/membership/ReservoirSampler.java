@@ -6,6 +6,8 @@
  */
 package com.hellblazer.archipelago.membership;
 
+import org.apache.commons.math3.random.BitsStreamGenerator;
+
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -17,11 +19,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 
-import org.apache.commons.math3.random.BitsStreamGenerator;
-
 public class ReservoirSampler<T> implements Collector<T, List<T>, List<T>> {
 
-    private AtomicInteger             c = new AtomicInteger();
+    private final AtomicInteger       c = new AtomicInteger();
     private final Object              exclude;
     private final BitsStreamGenerator rand;
     private final int                 sz;

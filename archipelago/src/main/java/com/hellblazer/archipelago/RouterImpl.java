@@ -7,6 +7,7 @@
 package com.hellblazer.archipelago;
 
 import com.hellblazer.archipelago.membership.Member;
+import com.hellblazer.archipelago.protocols.ClientIdentity;
 import com.hellblazer.cryptography.hash.Digest;
 import com.netflix.concurrency.limits.Limit;
 import com.netflix.concurrency.limits.limit.AIMDLimit;
@@ -25,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import com.hellblazer.archipelago.ClientIdentity;
+
 import static com.hellblazer.cryptography.QualifiedBase64.digest;
 import static com.hellblazer.cryptography.QualifiedBase64.qb64;
 

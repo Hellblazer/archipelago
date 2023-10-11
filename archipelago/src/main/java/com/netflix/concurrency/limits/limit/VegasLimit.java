@@ -1,17 +1,14 @@
 /**
  * Copyright 2018 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
  */
 package com.netflix.concurrency.limits.limit;
 
@@ -32,7 +29,7 @@ import java.util.function.Function;
  * Limiter based on TCP Vegas where the limit increases by alpha if the
  * queue_use is small ({@literal <} alpha) and decreases by alpha if the
  * queue_use is large ({@literal >} beta).
- * 
+ *
  * Queue size is calculated using the formula, queue_use = limit − BWE×RTTnoLoad
  * = limit × (1 − RTTnoLoad/RTTactual)
  *
@@ -44,125 +41,10 @@ public class VegasLimit extends AbstractLimit {
     private static final Logger LOG = LoggerFactory.getLogger(VegasLimit.class);
 
     private static final Function<Integer, Integer> LOG10 = Log10RootFunction.create(0);
-
-    public static class Builder {
-        private int            initialLimit   = 20;
-        private int            maxConcurrency = 1000;
-        private MetricRegistry registry       = EmptyMetricRegistry.INSTANCE;
-        private double         smoothing      = 1.0;
-
-        private Function<Integer, Integer> alphaFunc       = (limit) -> 3 * LOG10.apply(limit.intValue());
-        private Function<Integer, Integer> betaFunc        = (limit) -> 6 * LOG10.apply(limit.intValue());
-        private Function<Integer, Integer> thresholdFunc   = (limit) -> LOG10.apply(limit.intValue());
-        private Function<Double, Double>   increaseFunc    = (limit) -> limit + LOG10.apply(limit.intValue());
-        private Function<Double, Double>   decreaseFunc    = (limit) -> limit - LOG10.apply(limit.intValue());
-        private int                        probeMultiplier = 30;
-
-        private Builder() {
-        }
-
-        /**
-         * The limiter will probe for a new noload RTT every probeMultiplier * current
-         * limit iterations. Default value is 30.
-         * 
-         * @param probeMultiplier
-         * @return Chainable builder
-         */
-        public Builder probeMultiplier(int probeMultiplier) {
-            this.probeMultiplier = probeMultiplier;
-            return this;
-        }
-
-        public Builder alpha(int alpha) {
-            this.alphaFunc = (ignore) -> alpha;
-            return this;
-        }
-
-        public Builder threshold(Function<Integer, Integer> threshold) {
-            this.thresholdFunc = threshold;
-            return this;
-        }
-
-        public Builder alpha(Function<Integer, Integer> alpha) {
-            this.alphaFunc = alpha;
-            return this;
-        }
-
-        public Builder beta(int beta) {
-            this.betaFunc = (ignore) -> beta;
-            return this;
-        }
-
-        public Builder beta(Function<Integer, Integer> beta) {
-            this.betaFunc = beta;
-            return this;
-        }
-
-        public Builder increase(Function<Double, Double> increase) {
-            this.increaseFunc = increase;
-            return this;
-        }
-
-        public Builder decrease(Function<Double, Double> decrease) {
-            this.decreaseFunc = decrease;
-            return this;
-        }
-
-        public Builder smoothing(double smoothing) {
-            this.smoothing = smoothing;
-            return this;
-        }
-
-        public Builder initialLimit(int initialLimit) {
-            this.initialLimit = initialLimit;
-            return this;
-        }
-
-        @Deprecated
-        public Builder tolerance(double tolerance) {
-            return this;
-        }
-
-        public Builder maxConcurrency(int maxConcurrency) {
-            this.maxConcurrency = maxConcurrency;
-            return this;
-        }
-
-        @Deprecated
-        public Builder backoffRatio(double ratio) {
-            return this;
-        }
-
-        public Builder metricRegistry(MetricRegistry registry) {
-            this.registry = registry;
-            return this;
-        }
-
-        public VegasLimit build() {
-            return new VegasLimit(this);
-        }
-    }
-
-    public static Builder newBuilder() {
-        return new Builder();
-    }
-
-    public static VegasLimit newDefault() {
-        return newBuilder().build();
-    }
-
-    /**
-     * Estimated concurrency limit based on our algorithm
-     */
-    private volatile double estimatedLimit;
-
-    private volatile long rtt_noload = 0;
-
     /**
      * Maximum allowed limit providing an upper bound failsafe
      */
     private final int maxLimit;
-
     private final double                     smoothing;
     private final Function<Integer, Integer> alphaFunc;
     private final Function<Integer, Integer> betaFunc;
@@ -171,9 +53,13 @@ public class VegasLimit extends AbstractLimit {
     private final Function<Double, Double>   decreaseFunc;
     private final SampleListener             rttSampleListener;
     private final int                        probeMultiplier;
-    private int                              probeCount = 0;
-    private double                           probeJitter;
-
+    /**
+     * Estimated concurrency limit based on our algorithm
+     */
+    private volatile double estimatedLimit;
+    private volatile long rtt_noload = 0;
+    private       int                        probeCount = 0;
+    private       double                     probeJitter;
     private VegasLimit(Builder builder) {
         super(builder.initialLimit);
         this.estimatedLimit = builder.initialLimit;
@@ -189,6 +75,14 @@ public class VegasLimit extends AbstractLimit {
         resetProbeJitter();
 
         this.rttSampleListener = builder.registry.distribution(MetricIds.MIN_RTT_NAME);
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    public static VegasLimit newDefault() {
+        return newBuilder().build();
     }
 
     private void resetProbeJitter() {
@@ -268,5 +162,103 @@ public class VegasLimit extends AbstractLimit {
     public String toString() {
         return "VegasLimit [limit=" + getLimit() + ", rtt_noload=" + TimeUnit.NANOSECONDS.toMicros(rtt_noload) / 1000.0
         + " ms]";
+    }
+
+    public static class Builder {
+        private int            initialLimit   = 20;
+        private int            maxConcurrency = 1000;
+        private MetricRegistry registry       = EmptyMetricRegistry.INSTANCE;
+        private double         smoothing      = 1.0;
+
+        private Function<Integer, Integer> alphaFunc       = (limit) -> 3 * LOG10.apply(limit.intValue());
+        private Function<Integer, Integer> betaFunc        = (limit) -> 6 * LOG10.apply(limit.intValue());
+        private Function<Integer, Integer> thresholdFunc   = (limit) -> LOG10.apply(limit.intValue());
+        private Function<Double, Double>   increaseFunc    = (limit) -> limit + LOG10.apply(limit.intValue());
+        private Function<Double, Double>   decreaseFunc    = (limit) -> limit - LOG10.apply(limit.intValue());
+        private int                        probeMultiplier = 30;
+
+        private Builder() {
+        }
+
+        /**
+         * The limiter will probe for a new noload RTT every probeMultiplier * current
+         * limit iterations. Default value is 30.
+         *
+         * @param probeMultiplier
+         * @return Chainable builder
+         */
+        public Builder probeMultiplier(int probeMultiplier) {
+            this.probeMultiplier = probeMultiplier;
+            return this;
+        }
+
+        public Builder alpha(int alpha) {
+            this.alphaFunc = (ignore) -> alpha;
+            return this;
+        }
+
+        public Builder threshold(Function<Integer, Integer> threshold) {
+            this.thresholdFunc = threshold;
+            return this;
+        }
+
+        public Builder alpha(Function<Integer, Integer> alpha) {
+            this.alphaFunc = alpha;
+            return this;
+        }
+
+        public Builder beta(int beta) {
+            this.betaFunc = (ignore) -> beta;
+            return this;
+        }
+
+        public Builder beta(Function<Integer, Integer> beta) {
+            this.betaFunc = beta;
+            return this;
+        }
+
+        public Builder increase(Function<Double, Double> increase) {
+            this.increaseFunc = increase;
+            return this;
+        }
+
+        public Builder decrease(Function<Double, Double> decrease) {
+            this.decreaseFunc = decrease;
+            return this;
+        }
+
+        public Builder smoothing(double smoothing) {
+            this.smoothing = smoothing;
+            return this;
+        }
+
+        public Builder initialLimit(int initialLimit) {
+            this.initialLimit = initialLimit;
+            return this;
+        }
+
+        @Deprecated
+        public Builder tolerance(double tolerance) {
+            return this;
+        }
+
+        public Builder maxConcurrency(int maxConcurrency) {
+            this.maxConcurrency = maxConcurrency;
+            return this;
+        }
+
+        @Deprecated
+        public Builder backoffRatio(double ratio) {
+            return this;
+        }
+
+        public Builder metricRegistry(MetricRegistry registry) {
+            this.registry = registry;
+            return this;
+        }
+
+        public VegasLimit build() {
+            return new VegasLimit(this);
+        }
     }
 }

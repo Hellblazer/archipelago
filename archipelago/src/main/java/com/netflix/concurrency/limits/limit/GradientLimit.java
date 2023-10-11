@@ -1,17 +1,14 @@
 /**
  * Copyright 2018 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
  */
 package com.netflix.concurrency.limits.limit;
 
@@ -42,206 +39,25 @@ public final class GradientLimit extends AbstractLimit {
     private static final int DISABLED = -1;
 
     private static final Logger LOG = LoggerFactory.getLogger(GradientLimit.class);
-
-    public static class Builder {
-        private int initialLimit   = 50;
-        private int minLimit       = 1;
-        private int maxConcurrency = 1000;
-
-        private double                     smoothing     = 0.2;
-        private Function<Integer, Integer> queueSize     = SquareRootFunction.create(4);
-        private MetricRegistry             registry      = EmptyMetricRegistry.INSTANCE;
-        private double                     rttTolerance  = 2.0;
-        private int                        probeInterval = 1000;
-        private double                     backoffRatio  = 0.9;
-
-        /**
-         * Minimum threshold for accepting a new rtt sample. Any RTT lower than this
-         * threshold will be discarded.
-         * 
-         * @param minRttThreshold
-         * @param units
-         * @return Chainable builder
-         */
-        @Deprecated
-        public Builder minRttThreshold(long minRttThreshold, TimeUnit units) {
-            return this;
-        }
-
-        /**
-         * Initial limit used by the limiter
-         * 
-         * @param initialLimit
-         * @return Chainable builder
-         */
-        public Builder initialLimit(int initialLimit) {
-            this.initialLimit = initialLimit;
-            return this;
-        }
-
-        /**
-         * Minimum concurrency limit allowed. The minimum helps prevent the algorithm
-         * from adjust the limit too far down. Note that this limit is not desirable
-         * when use as backpressure for batch apps.
-         * 
-         * @param minLimit
-         * @return Chainable builder
-         */
-        public Builder minLimit(int minLimit) {
-            this.minLimit = minLimit;
-            return this;
-        }
-
-        /**
-         * Tolerance for changes in minimum latency.
-         * 
-         * @param rttTolerance Value {@literal >}= 1.0 indicating how much change in
-         *                     minimum latency is acceptable before reducing the limit.
-         *                     For example, a value of 2.0 means that a 2x increase in
-         *                     latency is acceptable.
-         * @return Chainable builder
-         */
-        public Builder rttTolerance(double rttTolerance) {
-            Preconditions.checkArgument(rttTolerance >= 1.0, "Tolerance must be >= 1.0");
-            this.rttTolerance = rttTolerance;
-            return this;
-        }
-
-        /**
-         * Maximum allowable concurrency. Any estimated concurrency will be capped at
-         * this value
-         * 
-         * @param maxConcurrency
-         * @return Chainable builder
-         */
-        public Builder maxConcurrency(int maxConcurrency) {
-            this.maxConcurrency = maxConcurrency;
-            return this;
-        }
-
-        /**
-         * Fixed amount the estimated limit can grow while latencies remain low
-         * 
-         * @param queueSize
-         * @return Chainable builder
-         */
-        public Builder queueSize(int queueSize) {
-            this.queueSize = (ignore) -> queueSize;
-            return this;
-        }
-
-        /**
-         * Function to dynamically determine the amount the estimated limit can grow
-         * while latencies remain low as a function of the current limit.
-         * 
-         * @param queueSize
-         * @return Chainable builder
-         */
-        public Builder queueSize(Function<Integer, Integer> queueSize) {
-            this.queueSize = queueSize;
-            return this;
-        }
-
-        /**
-         * Smoothing factor to limit how aggressively the estimated limit can shrink
-         * when queuing has been detected.
-         * 
-         * @param smoothing Value of 0.0 to 1.0 where 1.0 means the limit is completely
-         *                  replicated by the new estimate.
-         * @return Chainable builder
-         */
-        public Builder smoothing(double smoothing) {
-            this.smoothing = smoothing;
-            return this;
-        }
-
-        /**
-         * Registry for reporting metrics about the limiter's internal state.
-         * 
-         * @param registry
-         * @return Chainable builder
-         */
-        public Builder metricRegistry(MetricRegistry registry) {
-            this.registry = registry;
-            return this;
-        }
-
-        /**
-         * Ratio applied to the limit when a timeout was identified within the sampling
-         * window. The default value is 0.9. A value of 1.0 means no backoff.
-         * 
-         * @param backoffRatio
-         * @return
-         */
-        public Builder backoffRatio(double backoffRatio) {
-            Preconditions.checkArgument(backoffRatio >= 0.5 && backoffRatio <= 1.0,
-                                        "backoffRatio must be in the range [0.5, 1.0]");
-            this.backoffRatio = backoffRatio;
-            return this;
-        }
-
-        @Deprecated
-        public Builder probeMultiplier(int probeMultiplier) {
-            return this;
-        }
-
-        /**
-         * The limiter will probe for a new noload RTT every probeInterval updates.
-         * Default value is 1000. Set to -1 to disable
-         * 
-         * @param probeInterval
-         * @return Chainable builder
-         */
-        public Builder probeInterval(int probeInterval) {
-            this.probeInterval = probeInterval;
-            return this;
-        }
-
-        public GradientLimit build() {
-            return new GradientLimit(this);
-        }
-    }
-
-    public static Builder newBuilder() {
-        return new Builder();
-    }
-
-    public static GradientLimit newDefault() {
-        return newBuilder().build();
-    }
-
-    /**
-     * Estimated concurrency limit based on our algorithm
-     */
-    private volatile double estimatedLimit;
-
-    private long lastRtt = 0;
-
     private final Measurement rttNoLoadMeasurement;
-
     /**
      * Maximum allowed limit providing an upper bound failsafe
      */
     private final int maxLimit;
-
     private final int minLimit;
-
     private final Function<Integer, Integer> queueSize;
-
     private final double smoothing;
-
     private final double rttTolerance;
-
     private final double backoffRatio;
-
     private final SampleListener minRttSampleListener;
-
     private final SampleListener minWindowRttSampleListener;
-
     private final SampleListener queueSizeSampleListener;
-
     private final int probeInterval;
-
+    /**
+     * Estimated concurrency limit based on our algorithm
+     */
+    private volatile double estimatedLimit;
+    private long lastRtt = 0;
     private int resetRttCounter;
 
     private GradientLimit(Builder builder) {
@@ -260,6 +76,14 @@ public final class GradientLimit extends AbstractLimit {
         this.minRttSampleListener = builder.registry.distribution(MetricIds.MIN_RTT_NAME);
         this.minWindowRttSampleListener = builder.registry.distribution(MetricIds.WINDOW_MIN_RTT_NAME);
         this.queueSizeSampleListener = builder.registry.distribution(MetricIds.WINDOW_QUEUE_SIZE_NAME);
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    public static GradientLimit newDefault() {
+        return newBuilder().build();
     }
 
     private int nextProbeCountdown() {
@@ -341,5 +165,164 @@ public final class GradientLimit extends AbstractLimit {
     public String toString() {
         return "GradientLimit [limit=" + (int) estimatedLimit + ", rtt_noload="
         + TimeUnit.MICROSECONDS.toMillis(rttNoLoadMeasurement.get().longValue()) / 1000.0 + " ms]";
+    }
+
+    public static class Builder {
+        private int initialLimit   = 50;
+        private int minLimit       = 1;
+        private int maxConcurrency = 1000;
+
+        private double                     smoothing     = 0.2;
+        private Function<Integer, Integer> queueSize     = SquareRootFunction.create(4);
+        private MetricRegistry             registry      = EmptyMetricRegistry.INSTANCE;
+        private double                     rttTolerance  = 2.0;
+        private int                        probeInterval = 1000;
+        private double                     backoffRatio  = 0.9;
+
+        /**
+         * Minimum threshold for accepting a new rtt sample. Any RTT lower than this
+         * threshold will be discarded.
+         *
+         * @param minRttThreshold
+         * @param units
+         * @return Chainable builder
+         */
+        @Deprecated
+        public Builder minRttThreshold(long minRttThreshold, TimeUnit units) {
+            return this;
+        }
+
+        /**
+         * Initial limit used by the limiter
+         *
+         * @param initialLimit
+         * @return Chainable builder
+         */
+        public Builder initialLimit(int initialLimit) {
+            this.initialLimit = initialLimit;
+            return this;
+        }
+
+        /**
+         * Minimum concurrency limit allowed. The minimum helps prevent the algorithm
+         * from adjust the limit too far down. Note that this limit is not desirable
+         * when use as backpressure for batch apps.
+         *
+         * @param minLimit
+         * @return Chainable builder
+         */
+        public Builder minLimit(int minLimit) {
+            this.minLimit = minLimit;
+            return this;
+        }
+
+        /**
+         * Tolerance for changes in minimum latency.
+         *
+         * @param rttTolerance Value {@literal >}= 1.0 indicating how much change in
+         *                     minimum latency is acceptable before reducing the limit.
+         *                     For example, a value of 2.0 means that a 2x increase in
+         *                     latency is acceptable.
+         * @return Chainable builder
+         */
+        public Builder rttTolerance(double rttTolerance) {
+            Preconditions.checkArgument(rttTolerance >= 1.0, "Tolerance must be >= 1.0");
+            this.rttTolerance = rttTolerance;
+            return this;
+        }
+
+        /**
+         * Maximum allowable concurrency. Any estimated concurrency will be capped at
+         * this value
+         *
+         * @param maxConcurrency
+         * @return Chainable builder
+         */
+        public Builder maxConcurrency(int maxConcurrency) {
+            this.maxConcurrency = maxConcurrency;
+            return this;
+        }
+
+        /**
+         * Fixed amount the estimated limit can grow while latencies remain low
+         *
+         * @param queueSize
+         * @return Chainable builder
+         */
+        public Builder queueSize(int queueSize) {
+            this.queueSize = (ignore) -> queueSize;
+            return this;
+        }
+
+        /**
+         * Function to dynamically determine the amount the estimated limit can grow
+         * while latencies remain low as a function of the current limit.
+         *
+         * @param queueSize
+         * @return Chainable builder
+         */
+        public Builder queueSize(Function<Integer, Integer> queueSize) {
+            this.queueSize = queueSize;
+            return this;
+        }
+
+        /**
+         * Smoothing factor to limit how aggressively the estimated limit can shrink
+         * when queuing has been detected.
+         *
+         * @param smoothing Value of 0.0 to 1.0 where 1.0 means the limit is completely
+         *                  replicated by the new estimate.
+         * @return Chainable builder
+         */
+        public Builder smoothing(double smoothing) {
+            this.smoothing = smoothing;
+            return this;
+        }
+
+        /**
+         * Registry for reporting metrics about the limiter's internal state.
+         *
+         * @param registry
+         * @return Chainable builder
+         */
+        public Builder metricRegistry(MetricRegistry registry) {
+            this.registry = registry;
+            return this;
+        }
+
+        /**
+         * Ratio applied to the limit when a timeout was identified within the sampling
+         * window. The default value is 0.9. A value of 1.0 means no backoff.
+         *
+         * @param backoffRatio
+         * @return
+         */
+        public Builder backoffRatio(double backoffRatio) {
+            Preconditions.checkArgument(backoffRatio >= 0.5 && backoffRatio <= 1.0,
+                                        "backoffRatio must be in the range [0.5, 1.0]");
+            this.backoffRatio = backoffRatio;
+            return this;
+        }
+
+        @Deprecated
+        public Builder probeMultiplier(int probeMultiplier) {
+            return this;
+        }
+
+        /**
+         * The limiter will probe for a new noload RTT every probeInterval updates.
+         * Default value is 1000. Set to -1 to disable
+         *
+         * @param probeInterval
+         * @return Chainable builder
+         */
+        public Builder probeInterval(int probeInterval) {
+            this.probeInterval = probeInterval;
+            return this;
+        }
+
+        public GradientLimit build() {
+            return new GradientLimit(this);
+        }
     }
 }

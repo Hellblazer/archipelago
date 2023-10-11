@@ -6,8 +6,8 @@
  */
 package com.hellblazer.comm.grpc;
 
+import com.hellblazer.archipelago.protocols.ClientIdentity;
 import com.hellblazer.cryptography.hash.Digest;
-import com.salesforce.apollo.protocols.ClientIdentity;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;

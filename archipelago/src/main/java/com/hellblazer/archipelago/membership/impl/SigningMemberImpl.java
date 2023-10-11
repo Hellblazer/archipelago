@@ -19,13 +19,10 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 
-
 /**
- * A signiner member of a view. This is a local member to the process that can
- * sign and assert things.
- * 
- * @author hal.hildebrand
+ * A signiner member of a view. This is a local member to the process that can sign and assert things.
  *
+ * @author hal.hildebrand
  */
 public class SigningMemberImpl extends MemberImpl implements SigningMember {
 

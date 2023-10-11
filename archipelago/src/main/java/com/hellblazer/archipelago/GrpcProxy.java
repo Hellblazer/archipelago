@@ -6,32 +6,55 @@
  */
 package com.hellblazer.archipelago;
 
+import com.google.common.io.ByteStreams;
+import io.grpc.*;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.google.common.io.ByteStreams;
-
-import io.grpc.CallOptions;
-import io.grpc.ClientCall;
-import io.grpc.HandlerRegistry;
-import io.grpc.ManagedChannel;
-import io.grpc.Metadata;
-import io.grpc.MethodDescriptor;
-import io.grpc.ServerCall;
-import io.grpc.ServerCallHandler;
-import io.grpc.ServerMethodDefinition;
-import io.grpc.Status;
-
 /**
  * Proxy from one GRPC server to another GRPC server
  *
  * @author hal.hildebrand
- *
  */
 abstract public class GrpcProxy implements ServerCallHandler<byte[], byte[]> {
+    public HandlerRegistry newRegistry() {
+        return new HandlerRegistry() {
+            private final MethodDescriptor.Marshaller<byte[]> byteMarshaller = new ByteMarshaller();
+
+            @Override
+            public ServerMethodDefinition<byte[], byte[]> lookupMethod(String methodName, String authority) {
+                MethodDescriptor<byte[], byte[]> methodDescriptor = MethodDescriptor.newBuilder(byteMarshaller,
+                                                                                                byteMarshaller)
+                                                                                    .setFullMethodName(methodName)
+                                                                                    .setType(
+                                                                                    MethodDescriptor.MethodType.UNKNOWN)
+                                                                                    .build();
+                return ServerMethodDefinition.create(methodDescriptor, GrpcProxy.this);
+            }
+        };
+    }
+
+    @Override
+    public ServerCall.Listener<byte[]> startCall(ServerCall<byte[], byte[]> serverCall, Metadata headers) {
+        final var channel = getChannel();
+        try {
+            var clientCall = channel.newCall(serverCall.getMethodDescriptor(), CallOptions.DEFAULT);
+            var proxy = new CallProxy<>(serverCall, clientCall);
+            clientCall.start(proxy.clientCallListener, headers);
+            serverCall.request(1);
+            clientCall.request(1);
+            return proxy.serverCallListener;
+        } finally {
+            channel.shutdown();
+        }
+    }
+
+    protected abstract ManagedChannel getChannel();
+
     private static class ByteMarshaller implements MethodDescriptor.Marshaller<byte[]> {
         @Override
         public byte[] parse(InputStream stream) {
@@ -49,10 +72,18 @@ abstract public class GrpcProxy implements ServerCallHandler<byte[], byte[]> {
     }
 
     private static class CallProxy<ReqT, RespT> {
+        private final ResponseProxy clientCallListener;
+        private final RequestProxy  serverCallListener;
+
+        public CallProxy(ServerCall<ReqT, RespT> serverCall, ClientCall<ReqT, RespT> clientCall) {
+            serverCallListener = new RequestProxy(clientCall);
+            clientCallListener = new ResponseProxy(serverCall);
+        }
+
         private class RequestProxy extends ServerCall.Listener<ReqT> {
             private final ClientCall<ReqT, ?> clientCall;
             private final Lock                lock = new ReentrantLock();
-            private boolean                   needToRequest;
+            private       boolean             needToRequest;
 
             public RequestProxy(ClientCall<ReqT, ?> clientCall) {
                 this.clientCall = clientCall;
@@ -103,8 +134,8 @@ abstract public class GrpcProxy implements ServerCallHandler<byte[], byte[]> {
 
         private class ResponseProxy extends ClientCall.Listener<RespT> {
             private final Lock                 lock = new ReentrantLock();
-            private boolean                    needToRequest;
             private final ServerCall<?, RespT> serverCall;
+            private       boolean              needToRequest;
 
             public ResponseProxy(ServerCall<?, RespT> serverCall) {
                 this.serverCall = serverCall;
@@ -152,47 +183,6 @@ abstract public class GrpcProxy implements ServerCallHandler<byte[], byte[]> {
                 }
             }
         }
-
-        private final ResponseProxy clientCallListener;
-        private final RequestProxy  serverCallListener;
-
-        public CallProxy(ServerCall<ReqT, RespT> serverCall, ClientCall<ReqT, RespT> clientCall) {
-            serverCallListener = new RequestProxy(clientCall);
-            clientCallListener = new ResponseProxy(serverCall);
-        }
     }
-
-    public HandlerRegistry newRegistry() {
-        return new HandlerRegistry() {
-            private final MethodDescriptor.Marshaller<byte[]> byteMarshaller = new ByteMarshaller();
-
-            @Override
-            public ServerMethodDefinition<byte[], byte[]> lookupMethod(String methodName, String authority) {
-                MethodDescriptor<byte[], byte[]> methodDescriptor = MethodDescriptor.newBuilder(byteMarshaller,
-                                                                                                byteMarshaller)
-                                                                                    .setFullMethodName(methodName)
-                                                                                    .setType(MethodDescriptor.MethodType.UNKNOWN)
-                                                                                    .build();
-                return ServerMethodDefinition.create(methodDescriptor, GrpcProxy.this);
-            }
-        };
-    }
-
-    @Override
-    public ServerCall.Listener<byte[]> startCall(ServerCall<byte[], byte[]> serverCall, Metadata headers) {
-        final var channel = getChannel();
-        try {
-            var clientCall = channel.newCall(serverCall.getMethodDescriptor(), CallOptions.DEFAULT);
-            var proxy = new CallProxy<>(serverCall, clientCall);
-            clientCall.start(proxy.clientCallListener, headers);
-            serverCall.request(1);
-            clientCall.request(1);
-            return proxy.serverCallListener;
-        } finally {
-            channel.shutdown();
-        }
-    }
-
-    protected abstract ManagedChannel getChannel();
 
 }

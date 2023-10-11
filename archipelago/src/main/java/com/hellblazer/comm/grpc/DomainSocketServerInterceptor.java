@@ -13,11 +13,11 @@ import static io.grpc.netty.DomainSocketNegotiatorHandler.TRANSPORT_ATTR_PEER_CR
 
 /**
  * @author hal.hildebrand
- *
  */
 public class DomainSocketServerInterceptor implements ServerInterceptor {
 
-    public static final Context.Key<PeerCredentials> PEER_CREDENTIALS_CONTEXT_KEY = Context.key("com.salesforce.apollo.PEER_CREDENTIALS");
+    public static final Context.Key<PeerCredentials> PEER_CREDENTIALS_CONTEXT_KEY = Context.key(
+    "com.salesforce.apollo.PEER_CREDENTIALS");
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
@@ -26,8 +26,7 @@ public class DomainSocketServerInterceptor implements ServerInterceptor {
         var principal = call.getAttributes().get(TRANSPORT_ATTR_PEER_CREDENTIALS);
         if (principal == null) {
             call.close(Status.INTERNAL.withCause(new NullPointerException("Principal is missing"))
-                                      .withDescription("Principal is missing"),
-                       null);
+                                      .withDescription("Principal is missing"), null);
             return new ServerCall.Listener<ReqT>() {
             };
         }

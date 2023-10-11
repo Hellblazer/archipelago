@@ -6,6 +6,8 @@
  */
 package com.hellblazer.archipelago.membership;
 
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.Signature;
@@ -15,19 +17,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.naming.InvalidNameException;
-import javax.naming.ldap.LdapName;
-
 /**
  * @author hal.hildebrand
  * @since 220
  */
 final public class Util {
 
+    private Util() {
+    }
+
     /**
-     * A single event X has probability p. Calculate probability of k occurrences X
-     * within n events
-     * 
+     * A single event X has probability p. Calculate probability of k occurrences X within n events
+     *
      * @param k - number of occurrences
      * @param n - number of events
      * @param p - probability of event occurring
@@ -113,8 +114,5 @@ final public class Util {
     public static String toHex(byte[] bytes) {
         BigInteger bi = new BigInteger(1, bytes);
         return String.format("%0" + (bytes.length << 1) + "X", bi);
-    }
-
-    private Util() {
     }
 }

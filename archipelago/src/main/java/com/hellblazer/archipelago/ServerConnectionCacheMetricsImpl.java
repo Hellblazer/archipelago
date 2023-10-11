@@ -13,7 +13,6 @@ import com.codahale.metrics.Timer;
 
 /**
  * @author hal.hildebrand
- *
  */
 public class ServerConnectionCacheMetricsImpl implements ServerConnectionCache.ServerConnectionCacheMetrics {
     private final Meter   borrowRate;

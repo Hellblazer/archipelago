@@ -4,27 +4,24 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-package com.hellblazer.archipelago;
+package com.hellblazer.archipelago.protocols;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
-import com.salesforce.apollo.protocols.EndpointMetrics;
-import com.salesforce.apollo.protocols.LimitsRegistry;
 
 /**
  * @author hal.hildebrand
- *
  */
 public class EndpointMetricsImpl implements EndpointMetrics {
-    private final Meter                                          inboundBandwidth;
+    private final Meter          inboundBandwidth;
     @SuppressWarnings("unused")
-    private final com.salesforce.apollo.protocols.LimitsRegistry limits;
-    private final Meter                                          outboundBandwidth;
+    private final LimitsRegistry limits;
+    private final Meter          outboundBandwidth;
 
     public EndpointMetricsImpl(MetricRegistry registry) {
         inboundBandwidth = registry.meter(INBOUND_BANDWIDTH);
         outboundBandwidth = registry.meter(OUTBOUND_BANDWIDTH);
-        limits = new com.salesforce.apollo.protocols.LimitsRegistry("endpoint", registry);
+        limits = new LimitsRegistry("endpoint", registry);
     }
 
     @Override

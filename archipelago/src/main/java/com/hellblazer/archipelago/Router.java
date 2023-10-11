@@ -7,6 +7,7 @@
 package com.hellblazer.archipelago;
 
 import com.hellblazer.archipelago.membership.Member;
+import com.hellblazer.archipelago.protocols.ClientIdentity;
 import com.hellblazer.cryptography.hash.Digest;
 import io.grpc.BindableService;
 import io.grpc.Context;
@@ -50,19 +51,20 @@ public interface Router {
 
     void close(Duration await);
 
-    <Client extends Link, Service extends ServiceRouting> RouterImpl.CommonCommunications<Client, Service> create(Member member,
-                                                                                                                  Digest context,
-                                                                                                                  Service service,
-                                                                                                                  Function<RoutableService<Service>, BindableService> factory,
-                                                                                                                  ServerConnectionCache.CreateClientCommunications<Client> createFunction,
-                                                                                                                  Client localLoopback);
+    <Client extends Link, Service extends ServiceRouting> RouterImpl.CommonCommunications<Client, Service> create(
+    Member member, Digest context, Service service, Function<RoutableService<Service>, BindableService> factory,
+    ServerConnectionCache.CreateClientCommunications<Client> createFunction, Client localLoopback);
 
-    <Service, Client extends Link> RouterImpl.CommonCommunications<Client, Service> create(Member member, Digest context,
-                                                                                           Service service, String routingLabel,
+    <Service, Client extends Link> RouterImpl.CommonCommunications<Client, Service> create(Member member,
+                                                                                           Digest context,
+                                                                                           Service service,
+                                                                                           String routingLabel,
                                                                                            Function<RoutableService<Service>, BindableService> factory);
 
-    <Client extends Link, Service> RouterImpl.CommonCommunications<Client, Service> create(Member member, Digest context,
-                                                                                           Service service, String routingLabel,
+    <Client extends Link, Service> RouterImpl.CommonCommunications<Client, Service> create(Member member,
+                                                                                           Digest context,
+                                                                                           Service service,
+                                                                                           String routingLabel,
                                                                                            Function<RoutableService<Service>, BindableService> factory,
                                                                                            ServerConnectionCache.CreateClientCommunications<Client> createFunction,
                                                                                            Client localLoopback);

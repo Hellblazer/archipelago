@@ -186,11 +186,9 @@ public class ContextImpl<T extends Member> implements Context<T> {
             return false;
         Context<?> other = (Context<?>) obj;
         if (id == null) {
-            if (other.getId() != null)
-                return false;
-        } else if (!id.equals(other.getId()))
-            return false;
-        return true;
+            return other.getId() == null;
+        } else
+            return id.equals(other.getId());
     }
 
     @Override
@@ -662,9 +660,7 @@ public class ContextImpl<T extends Member> implements Context<T> {
 
         private void rebalance(int ringCount, ContextImpl<M> contextImpl) {
             final var newHashes = new Digest[ringCount];
-            for (int i = 0; i < Math.min(ringCount, hashes.length); i++) {
-                newHashes[i] = hashes[i];
-            }
+            System.arraycopy(hashes, 0, newHashes, 0, Math.min(ringCount, hashes.length));
             for (int i = Math.min(ringCount, hashes.length); i < newHashes.length; i++) {
                 newHashes[i] = contextImpl.hashFor(member.getId(), i);
             }

@@ -8,11 +8,12 @@
     <packaging>pom</packaging>
 
     <properties>
-        <slf4j.version>1.7.32</slf4j.version>
+        <slf4j.version>2.0.3</slf4j.version>
         <grpc.version>1.58.0</grpc.version>
         <protobuf.version>3.24.3</protobuf.version>
         <netty.version>4.1.93.Final</netty.version>
         <dropwizard.version>4.0.0-beta.3</dropwizard.version>
+        <logback.version>1.4.4</logback.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -130,8 +131,17 @@
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <version>1.2.11</version>
-                <scope>test</scope>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-access</artifactId>
+                <version>${logback.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
@@ -181,6 +191,14 @@
                 <configuration>
                     <generateBackupPoms>false</generateBackupPoms>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.xolstice.maven.plugins</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -30,7 +30,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static com.hellblazer.archipelago.Wrapped.wrapped;
+import static com.hellblazer.archipelago.Utils.wrapped;
 
 /**
  * @author hal.hildebrand

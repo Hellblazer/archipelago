@@ -10,15 +10,12 @@ import com.hellblazer.archipelago.membership.Member;
 
 import java.io.Closeable;
 
-
 /**
- * 
  * A client side link
  *
  * @author hal.hildebrand
- *
  */
 public interface Link extends Closeable {
 
-    public Member getMember();
+    Member getMember();
 }

@@ -7,6 +7,8 @@
 package com.hellblazer.archipelago;
 
 import com.hellblazer.archipelago.membership.Member;
+import com.hellblazer.archipelago.protocols.ClientIdentity;
+import com.hellblazer.archipelago.protocols.LimitsRegistry;
 import com.hellblazer.comm.grpc.DomainSocketServerInterceptor;
 import com.hellblazer.cryptography.hash.Digest;
 import com.netflix.concurrency.limits.Limit;

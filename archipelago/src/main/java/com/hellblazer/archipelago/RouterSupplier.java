@@ -6,6 +6,7 @@
  */
 package com.hellblazer.archipelago;
 
+import com.hellblazer.archipelago.protocols.LimitsRegistry;
 import com.netflix.concurrency.limits.Limit;
 
 import java.util.concurrent.Executor;
