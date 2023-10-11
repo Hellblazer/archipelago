@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.hellblazer</groupId>
     <artifactId>archipelago.app</artifactId>
@@ -7,35 +8,38 @@
     <packaging>pom</packaging>
 
     <properties>
-        <slf4j.version>1.7.32</slf4j.version> 
-        <grpc.version>1.49.1</grpc.version>
-        <protobuf.version>3.21.7</protobuf.version>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <slf4j.version>1.7.32</slf4j.version>
+        <grpc.version>1.58.0</grpc.version>
+        <protobuf.version>3.24.3</protobuf.version>
+        <netty.version>4.1.93.Final</netty.version>
+        <dropwizard.version>4.0.0-beta.3</dropwizard.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>com.hellblazer</groupId>
+                <artifactId>cryptography</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hellblazer</groupId>
+                <artifactId>domain-domain-epoll</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hellblazer</groupId>
+                <artifactId>domain-kqueue</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- GRPC/Proto Stuff-->
+            <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>31.0.1-jre</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>jul-to-slf4j</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-core</artifactId>
-                <version>${grpc.version}</version>
+                <version>31.1-jre</version>
             </dependency>
             <dependency>
                 <groupId>io.grpc</groupId>
@@ -59,14 +63,34 @@
             </dependency>
             <dependency>
                 <groupId>io.grpc</groupId>
-                <artifactId>protoc-gen-grpc-java</artifactId>
+                <artifactId>grpc-util</artifactId>
                 <version>${grpc.version}</version>
-                <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-netty-shaded</artifactId>
-                <version>${grpc.version}</version>
+                <!-- necessary for Java 9+ -->
+                <groupId>org.apache.tomcat</groupId>
+                <artifactId>annotations-api</artifactId>
+                <version>6.0.53</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>2.22.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-unix-common</artifactId>
+                <version>${netty.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.grpc</groupId>
@@ -75,14 +99,25 @@
             </dependency>
             <dependency>
                 <groupId>io.grpc</groupId>
-                <artifactId>grpc-services</artifactId>
+                <artifactId>grpc-inprocess</artifactId>
                 <version>${grpc.version}</version>
             </dependency>
             <dependency>
-                <!-- necessary for Java 9+ -->
-                <groupId>org.apache.tomcat</groupId>
-                <artifactId>annotations-api</artifactId>
-                <version>6.0.53</version>
+                <groupId>com.hellblazer</groupId>
+                <artifactId>domain-epoll</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hellblazer</groupId>
+                <artifactId>domain-kqueue</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.dropwizard</groupId>
+                <artifactId>dropwizard-dependencies</artifactId>
+                <version>${dropwizard.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!-- Test Only Deps below this line-->
@@ -96,11 +131,13 @@
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>1.2.11</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
                 <version>4.0.0</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -131,7 +168,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <release>17</release>
+                    <release>21</release>
                 </configuration>
             </plugin>
             <plugin>
@@ -159,22 +196,16 @@
                                 <requireMavenVersion>
                                     <version>3.8.1</version>
                                 </requireMavenVersion>
-                                <dependencyConvergence />
+                                <dependencyConvergence/>
                                 <requireJavaVersion>
-                                    <version>17</version>
+                                    <version>21</version>
                                 </requireJavaVersion>
-                                <requireJavaVendor>
-                                    <includes>
-                                        <include>GraalVM Community</include>
-                                    </includes>
-                                </requireJavaVendor>
                             </rules>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
-
 
         <pluginManagement>
             <plugins>
@@ -265,9 +296,11 @@
                     <artifactId>protobuf-maven-plugin</artifactId>
                     <version>0.6.1</version>
                     <configuration>
-                        <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+                        <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
+                        </protocArtifact>
                         <pluginId>grpc-java</pluginId>
-                        <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+                        <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}
+                        </pluginArtifact>
                     </configuration>
                     <executions>
                         <execution>
@@ -308,4 +341,28 @@
     <modules>
         <module>archipelago</module>
     </modules>
+    <profiles>
+        <profile>
+            <id>mac-domain</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <modules>
+                <module>domain-kqueue</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>linux-domain</id>
+            <activation>
+                <os>
+                    <name>linux</name>
+                </os>
+            </activation>
+            <modules>
+                <module>domain-epoll</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
