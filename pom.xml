@@ -7,6 +7,10 @@
     <name>Archipelago: Umbrella App</name>
     <packaging>pom</packaging>
 
+    <modules>
+        <module>archipelago</module>
+    </modules>
+
     <properties>
         <slf4j.version>2.0.3</slf4j.version>
         <grpc.version>1.58.0</grpc.version>
@@ -137,16 +141,19 @@
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-core</artifactId>
                 <version>${logback.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>${logback.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-access</artifactId>
                 <version>${logback.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
@@ -361,10 +368,6 @@
             </plugins>
         </pluginManagement>
     </build>
-    <modules>
-        <module>archipelago</module>
-        <module>rbc</module>
-    </modules>
     <profiles>
         <profile>
             <id>mac-domain</id>
@@ -386,6 +389,12 @@
             </activation>
             <modules>
                 <module>domain-epoll</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>rbc</id>
+            <modules>
+                <module>rbc</module>
             </modules>
         </profile>
     </profiles>
