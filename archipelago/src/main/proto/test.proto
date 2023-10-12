@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.hellblazer.test.proto";
+option java_outer_classname = "TestProto";
+option objc_class_prefix = "Tp";
+import "google/protobuf/any.proto";
+
+package apollo.test; 
+
+service TestIt {
+    rpc ping ( google.protobuf.Any ) returns (google.protobuf.Any) {}
+}
+
+message ByteMessage {
+    bytes contents = 1;
+}
+
+message PeerCreds {
+    int32 pid = 1;
+    int32 uid = 2;
+    repeated int32 gids = 3;
+}
