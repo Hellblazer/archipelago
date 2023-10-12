@@ -7,6 +7,18 @@
     <name>Archipelago: Umbrella App</name>
     <packaging>pom</packaging>
 
+    <licenses>
+        <license>
+            <name>GNU Affero General Public License V3</name>
+            <url>https://www.gnu.org/licenses/agpl-3.0.txt</url>
+            <distribution>repo</distribution>
+            <comments>
+                Copyright (c) 2023, Hal Hildebrand All
+                rights reserved.
+            </comments>
+        </license>
+    </licenses>
+
     <modules>
         <module>archipelago</module>
     </modules>
@@ -213,6 +225,14 @@
                 <artifactId>protobuf-maven-plugin</artifactId>
             </plugin>
             <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <altDeploymentRepository>
+                        internal.repo::default::file://${env.INTERNAL_REPOSITORY}
+                    </altDeploymentRepository>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <executions>
@@ -410,4 +430,16 @@
             </snapshots>
         </repository>
     </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>plugin-hell-repo</id>
+            <url>
+                https://raw.githubusercontent.com/Hellblazer/repo-hell/main/mvn-artifact
+            </url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
 </project>
