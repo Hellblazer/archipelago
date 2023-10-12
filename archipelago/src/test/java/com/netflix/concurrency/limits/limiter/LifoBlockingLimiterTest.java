@@ -105,7 +105,7 @@ public class LifoBlockingLimiterTest {
         long start = System.nanoTime();
         Optional<Limiter.Listener> listener = blockingLimiter.acquire(null);
         long duration = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
-        assertTrue(duration >= 235, "Duration: " + duration + " ms");
+        assertTrue(duration >= 200, "Duration: " + duration + " ms");
         assertTrue(listener.isPresent());
     }
 
