@@ -28,6 +28,11 @@
             </dependency>
             <dependency>
                 <groupId>com.hellblazer</groupId>
+                <artifactId>archipelago</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hellblazer</groupId>
                 <artifactId>domain-domain-epoll</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -130,12 +135,12 @@
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
-                <artifactId>logback-classic</artifactId>
+                <artifactId>logback-core</artifactId>
                 <version>${logback.version}</version>
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
-                <artifactId>logback-core</artifactId>
+                <artifactId>logback-classic</artifactId>
                 <version>${logback.version}</version>
             </dependency>
             <dependency>
@@ -358,6 +363,7 @@
     </build>
     <modules>
         <module>archipelago</module>
+        <module>rbc</module>
     </modules>
     <profiles>
         <profile>

@@ -1,14 +1,22 @@
 package com.hellblazer.archipelago;
 
+import com.hellblazer.cryptography.SignatureAlgorithm;
 import com.hellblazer.cryptography.cert.BcX500NameDnImpl;
+import com.hellblazer.cryptography.cert.CertificateWithPrivateKey;
+import com.hellblazer.cryptography.cert.Certificates;
 import com.hellblazer.cryptography.hash.Digest;
+import com.hellblazer.cryptography.hash.DigestAlgorithm;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
+import java.security.KeyPair;
 import java.security.PublicKey;
+import java.security.cert.X509Certificate;
+import java.time.Instant;
+import java.util.Collections;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
@@ -18,6 +26,28 @@ import static com.hellblazer.cryptography.QualifiedBase64.qb64;
  * @author hal.hildebrand
  **/
 public class Utils {
+
+    public static CertificateWithPrivateKey getMember(Digest id) {
+        KeyPair keyPair = SignatureAlgorithm.ED_25519.generateKeyPair();
+        var notBefore = Instant.now();
+        var notAfter = Instant.now().plusSeconds(10_000);
+        String localhost;
+        try {
+            localhost = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new IllegalStateException("Cannot resolve local host name", e);
+        }
+        X509Certificate generated = Certificates.selfSign(false,
+                                                          encode(id, localhost, allocatePort(), keyPair.getPublic()),
+                                                          keyPair, notBefore, notAfter, Collections.emptyList());
+        return new CertificateWithPrivateKey(generated, keyPair.getPrivate());
+    }
+
+    public static CertificateWithPrivateKey getMember(int index) {
+        byte[] hash = new byte[32];
+        hash[0] = (byte) index;
+        return getMember(new Digest(DigestAlgorithm.DEFAULT, hash));
+    }
 
     public static <T> Callable<T> wrapped(Callable<T> c, Logger log) {
         return () -> {
