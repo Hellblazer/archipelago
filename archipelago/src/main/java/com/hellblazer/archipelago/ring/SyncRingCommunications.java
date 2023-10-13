@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
-import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
@@ -37,7 +36,6 @@ public class SyncRingCommunications<T extends Member, Comm extends Link> {
     private final static Logger                                   log            = LoggerFactory.getLogger(
     SyncRingCommunications.class);
     final                Context<T>                               context;
-    final                Executor                                 exec;
     final                SigningMember                            member;
     private final        RouterImpl.CommonCommunications<Comm, ?> comm;
     private final        Direction                                direction;
@@ -48,23 +46,22 @@ public class SyncRingCommunications<T extends Member, Comm extends Link> {
     volatile             int                                      currentIndex   = -1;
 
     public SyncRingCommunications(Context<T> context, SigningMember member,
-                                  RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec) {
-        this(context, member, comm, exec, false);
+                                  RouterImpl.CommonCommunications<Comm, ?> comm) {
+        this(context, member, comm, false);
     }
 
     public SyncRingCommunications(Context<T> context, SigningMember member,
-                                  RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec, boolean ignoreSelf) {
-        this(Direction.SUCCESSOR, context, member, comm, exec, ignoreSelf);
+                                  RouterImpl.CommonCommunications<Comm, ?> comm, boolean ignoreSelf) {
+        this(Direction.SUCCESSOR, context, member, comm, ignoreSelf);
     }
 
     public SyncRingCommunications(Direction direction, Context<T> context, SigningMember member,
-                                  RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec, boolean ignoreSelf) {
+                                  RouterImpl.CommonCommunications<Comm, ?> comm, boolean ignoreSelf) {
         assert direction != null && context != null && member != null && comm != null;
         this.direction = direction;
         this.context = context;
         this.member = member;
         this.comm = comm;
-        this.exec = exec;
         this.ignoreSelf = ignoreSelf;
     }
 

@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -32,23 +31,22 @@ import java.util.function.Consumer;
  * @author hal.hildebrand
  **/
 public class SyncSliceIterator<Comm extends Link> {
-    private static final Logger                                   log = LoggerFactory.getLogger(SyncSliceIterator.class);
+    private static final Logger                                   log = LoggerFactory.getLogger(
+    SyncSliceIterator.class);
     private final        RouterImpl.CommonCommunications<Comm, ?> comm;
-    private final        Executor                                 exec;
-    private final String                 label;
-    private final SigningMember          member;
-    private final List<? extends Member> slice;
-    private       Member                 current;
-    private Iterator<? extends Member> currentIteration;
+    private final        String                                   label;
+    private final        SigningMember                            member;
+    private final        List<? extends Member>                   slice;
+    private              Member                                   current;
+    private              Iterator<? extends Member>               currentIteration;
 
     public SyncSliceIterator(String label, SigningMember member, List<? extends Member> slice,
-                             RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec) {
+                             RouterImpl.CommonCommunications<Comm, ?> comm) {
         assert member != null && slice != null && comm != null;
         this.label = label;
         this.member = member;
         this.slice = slice;
         this.comm = comm;
-        this.exec = exec;
         Entropy.secureShuffle(slice);
         this.currentIteration = slice.iterator();
         log.debug("Slice: {}", slice.stream().map(m -> m.getId()).toList());
@@ -64,9 +62,8 @@ public class SyncSliceIterator<Comm extends Link> {
         iterate(round, handler, null, scheduler, frequency);
     }
 
-    private <T> void internalIterate(BiFunction<Comm, Member, T> round,
-                                     SyncSlicePredicateHandler<T, Comm> handler, Runnable onComplete,
-                                     ScheduledExecutorService scheduler, Duration frequency) {
+    private <T> void internalIterate(BiFunction<Comm, Member, T> round, SyncSlicePredicateHandler<T, Comm> handler,
+                                     Runnable onComplete, ScheduledExecutorService scheduler, Duration frequency) {
         Runnable proceed = () -> internalIterate(round, handler, onComplete, scheduler, frequency);
 
         Consumer<Boolean> allowed = allow -> proceed(allow, proceed, onComplete, scheduler, frequency);

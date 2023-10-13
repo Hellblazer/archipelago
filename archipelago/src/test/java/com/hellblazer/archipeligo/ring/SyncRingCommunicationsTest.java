@@ -68,20 +68,19 @@ public class SyncRingCommunicationsTest {
             }
         };
         final var name = UUID.randomUUID().toString();
-        Context<Member> context = Context.newBuilder().build();
+        var context = Context.newBuilder().build();
         context.activate(serverMember1);
         context.activate(serverMember2);
 
         var serverBuilder = InProcessServerBuilder.forName(name);
         var cacheBuilder = ServerConnectionCache.newBuilder().setFactory(to -> InProcessChannelBuilder.forName(name).build());
         var router = new RouterImpl(serverMember1, serverBuilder, cacheBuilder, null);
-        RouterImpl.CommonCommunications<TestItService, TestIt> commsA = router.create(serverMember1, context.getId(), new ServiceImpl(local1, "A"), "A", ServerImpl::new, TestItClient::new, local1);
+        var commsA = router.create(serverMember1, context.getId(), new ServiceImpl(local1, "A"), "A", ServerImpl::new, TestItClient::new, local1);
 
-        RouterImpl.CommonCommunications<TestItService, TestIt> commsB = router.create(serverMember2, context.getId(), new ServiceImpl(local2, "B"), "B", ServerImpl::new, TestItClient::new, local2);
+        var commsB = router.create(serverMember2, context.getId(), new ServiceImpl(local2, "B"), "B", ServerImpl::new, TestItClient::new, local2);
 
         router.start();
-        var exec = Executors.newVirtualThreadPerTaskExecutor();
-        var sync = new SyncRingCommunications<Member, TestItService>(context, serverMember1, commsA, exec);
+        var sync = new SyncRingCommunications<Member, TestItService>(context, serverMember1, commsA);
         var countdown = new CountDownLatch(1);
         sync.execute((link, round) -> link.ping(Any.getDefaultInstance()), (result, destination) -> countdown.countDown());
         assertTrue(countdown.await(1, TimeUnit.SECONDS), "Completed: " + countdown.getCount());

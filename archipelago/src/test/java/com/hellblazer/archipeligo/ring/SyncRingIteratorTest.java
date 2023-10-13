@@ -82,9 +82,8 @@ public class SyncRingIteratorTest {
 
         router.start();
         var frequency = Duration.ofMillis(1);
-        var scheduler = Executors.newSingleThreadScheduledExecutor();
-        var exec = Executors.newVirtualThreadPerTaskExecutor();
-        var sync = new SyncRingIterator<Member, TestItService>(frequency, context, serverMember1, scheduler, commsA, exec);
+        var scheduler = Executors.newScheduledThreadPool(100, Thread.ofVirtual().factory());
+        var sync = new SyncRingIterator<Member, TestItService>(frequency, context, serverMember1, scheduler, commsA);
         var countdown = new CountDownLatch(3);
         sync.iterate(context.getId(), (link, round) -> link.ping(Any.getDefaultInstance()), (round, result, link) -> {
             countdown.countDown();

@@ -23,7 +23,6 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,31 +41,29 @@ public class SyncRingIterator<T extends Member, Comm extends Link> extends SyncR
     private volatile boolean                  majoritySucceed = false;
 
     public SyncRingIterator(Duration frequency, Context<T> context, SigningMember member,
-                            RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec, boolean ignoreSelf,
+                            RouterImpl.CommonCommunications<Comm, ?> comm, boolean ignoreSelf,
                             ScheduledExecutorService scheduler) {
-        super(context, member, comm, exec, ignoreSelf);
+        super(context, member, comm, ignoreSelf);
         this.scheduler = scheduler;
         this.frequency = frequency;
     }
 
     public SyncRingIterator(Duration frequency, Context<T> context, SigningMember member,
-                            ScheduledExecutorService scheduler, RouterImpl.CommonCommunications<Comm, ?> comm,
-                            Executor exec) {
-        this(frequency, context, member, comm, exec, false, scheduler);
+                            ScheduledExecutorService scheduler, RouterImpl.CommonCommunications<Comm, ?> comm) {
+        this(frequency, context, member, comm, false, scheduler);
     }
 
     public SyncRingIterator(Duration frequency, Direction direction, Context<T> context, SigningMember member,
-                            RouterImpl.CommonCommunications<Comm, ?> comm, Executor exec, boolean ignoreSelf,
+                            RouterImpl.CommonCommunications<Comm, ?> comm, boolean ignoreSelf,
                             ScheduledExecutorService scheduler) {
-        super(direction, context, member, comm, exec, ignoreSelf);
+        super(direction, context, member, comm, ignoreSelf);
         this.scheduler = scheduler;
         this.frequency = frequency;
     }
 
     public SyncRingIterator(Duration frequency, Direction direction, Context<T> context, SigningMember member,
-                            ScheduledExecutorService scheduler, RouterImpl.CommonCommunications<Comm, ?> comm,
-                            Executor exec) {
-        this(frequency, direction, context, member, comm, exec, false, scheduler);
+                            ScheduledExecutorService scheduler, RouterImpl.CommonCommunications<Comm, ?> comm) {
+        this(frequency, direction, context, member, comm, false, scheduler);
     }
 
     public <Q> void iterate(Digest digest, BiFunction<Comm, Integer, Q> round, SyncResultConsumer<T, Q, Comm> handler) {
@@ -83,9 +80,7 @@ public class SyncRingIterator<T extends Member, Comm extends Link> extends SyncR
                             Consumer<Integer> onComplete) {
         AtomicInteger tally = new AtomicInteger(0);
         var traversed = new ConcurrentSkipListSet<Member>();
-        exec.execute(
-        () -> internalIterate(digest, onMajority, round, failedMajority, handler, onComplete, tally, traversed));
-
+        internalIterate(digest, onMajority, round, failedMajority, handler, onComplete, tally, traversed);
     }
 
     public int iteration() {
@@ -210,7 +205,6 @@ public class SyncRingIterator<T extends Member, Comm extends Link> extends SyncR
     }
 
     private void schedule(Runnable proceed) {
-        scheduler.schedule(Utils.wrapped(() -> exec.execute(Utils.wrapped(proceed, log)), log), frequency.toNanos(),
-                           TimeUnit.NANOSECONDS);
+        scheduler.schedule(Utils.wrapped(proceed, log), frequency.toNanos(), TimeUnit.NANOSECONDS);
     }
 }
