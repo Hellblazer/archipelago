@@ -20,6 +20,7 @@ import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.cryptography.hash.DigestAlgorithm;
 import com.hellblazer.rbc.RbcMetrics;
 import com.hellblazer.rbc.RbcMetricsImpl;
+import com.hellblazer.rbc.ReliableBroadcaster;
 import com.hellblazer.test.proto.ByteMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -89,7 +90,8 @@ public class RbcTest {
         }).collect(Collectors.toList());
 
         System.out.println("Messaging with " + messengers.size() + " members");
-        messengers.forEach(view -> view.start(Duration.ofMillis(10), Executors.newScheduledThreadPool(3)));
+        var scheduler = Executors.newScheduledThreadPool(3);
+        messengers.forEach(view -> view.start(Duration.ofMillis(10), scheduler));
 
         Map<Member, Receiver> receivers = new HashMap<>();
         AtomicInteger current = new AtomicInteger(-1);

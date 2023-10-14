@@ -9,7 +9,6 @@ package com.hellblazer.comm.grpc;
 import com.google.protobuf.Any;
 import com.hellblazer.archipelago.Utils;
 import com.hellblazer.cryptography.SignatureAlgorithm;
-import com.hellblazer.cryptography.cert.BcX500NameDnImpl;
 import com.hellblazer.cryptography.cert.CertificateWithPrivateKey;
 import com.hellblazer.cryptography.cert.Certificates;
 import com.hellblazer.cryptography.hash.Digest;
@@ -27,12 +26,13 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.security.KeyPair;
 import java.security.Provider;
-import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
 import static com.hellblazer.cryptography.QualifiedBase64.qb64;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -79,8 +79,8 @@ public class TestMtls {
                 assertNotNull(tst);
             }
         } finally {
-            client.stop();
-            server.stop();
+            client.stop(Duration.ofSeconds(10));
+            server.stop(Duration.ofSeconds(10));
         }
     }
 

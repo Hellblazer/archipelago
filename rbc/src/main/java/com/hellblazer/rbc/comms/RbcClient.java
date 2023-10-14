@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 2019, salesforce.com, inc.
- * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Copyright (c) 2023. Hal Hildebrand, All Rights Reserved.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  */
+
 package com.hellblazer.rbc.comms;
 
 import com.codahale.metrics.Timer.Context;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.hellblazer.archipelago.ManagedServerChannel;
 import com.hellblazer.archipelago.ServerConnectionCache;
 import com.hellblazer.archipelago.membership.Member;
-import com.hellblazer.rbc.RbcMetrics;
 import com.hellblazer.messaging.proto.MessageBff;
 import com.hellblazer.messaging.proto.RBCGrpc;
 import com.hellblazer.messaging.proto.Reconcile;
 import com.hellblazer.messaging.proto.ReconcileContext;
-
-import java.util.concurrent.ExecutionException;
+import com.hellblazer.rbc.RbcMetrics;
 
 /**
  * @author hal.hildebrand
@@ -25,12 +24,13 @@ import java.util.concurrent.ExecutionException;
  */
 public class RbcClient implements ReliableBroadcast {
 
-    private final ManagedServerChannel  channel;
-    private final RBCGrpc.RBCFutureStub client;
-    private final RbcMetrics            metrics;
+    private final ManagedServerChannel    channel;
+    private final RBCGrpc.RBCBlockingStub client;
+    private final RbcMetrics              metrics;
+
     public RbcClient(ManagedServerChannel c, RbcMetrics metrics) {
         this.channel = c;
-        this.client = RBCGrpc.newFutureStub(c).withCompression("gzip");
+        this.client = RBCGrpc.newBlockingStub(c).withCompression("gzip");
         this.metrics = metrics;
     }
 
@@ -52,7 +52,7 @@ public class RbcClient implements ReliableBroadcast {
     }
 
     @Override
-    public ListenableFuture<Reconcile> gossip(MessageBff request) {
+    public Reconcile gossip(MessageBff request) {
         Context timer = metrics == null ? null : metrics.outboundGossipTimer().time();
         if (metrics != null) {
             var serializedSize = request.getSerializedSize();
@@ -61,20 +61,10 @@ public class RbcClient implements ReliableBroadcast {
         }
         var result = client.gossip(request);
         if (metrics != null) {
-            result.addListener(() -> {
-                Reconcile reconcile;
-                try {
-                    reconcile = result.get();
-                    timer.stop();
-                    var serializedSize = reconcile.getSerializedSize();
-                    metrics.inboundBandwidth().mark(serializedSize);
-                    metrics.gossipResponse().update(serializedSize);
-                } catch (InterruptedException | ExecutionException e) {
-                    if (timer != null) {
-                        timer.close();
-                    }
-                }
-            }, r -> r.run());
+            timer.stop();
+            var serializedSize = result.getSerializedSize();
+            metrics.inboundBandwidth().mark(serializedSize);
+            metrics.gossipResponse().update(serializedSize);
         }
         return result;
     }
@@ -99,11 +89,9 @@ public class RbcClient implements ReliableBroadcast {
         try {
             var result = client.update(request);
             if (metrics != null) {
-                result.addListener(() -> {
-                    if (timer != null) {
-                        timer.stop();
-                    }
-                }, r -> r.run());
+                if (timer != null) {
+                    timer.stop();
+                }
             }
         } catch (Throwable e) {
             if (timer != null) {

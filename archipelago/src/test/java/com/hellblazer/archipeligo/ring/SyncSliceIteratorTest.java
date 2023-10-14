@@ -86,17 +86,19 @@ public class SyncSliceIteratorTest {
                                                                                       new ServiceImpl(local2, "B"), "B",
                                                                                       ServerImpl::new,
                                                                                       TestItClient::new, local2);
-
-        router.start();
-        var slice = new SyncSliceIterator<TestItService>("Test Me", serverMember1,
-                                                         Arrays.asList(serverMember1, serverMember2), commsA);
-        var countdown = new CountDownLatch(1);
-        slice.iterate((link, member) -> link.ping(Any.getDefaultInstance()), (result, comms, member) -> true, () -> {
-            countdown.countDown();
-        }, Executors.newScheduledThreadPool(10, Thread.ofVirtual().factory()), Duration.ofMillis(1));
-        boolean finished = countdown.await(3, TimeUnit.SECONDS);
-        assertTrue(finished, "completed: " + countdown.getCount());
-        assertTrue(pinged1.get());
-        assertTrue(pinged2.get());
+        try {
+            router.start();
+            var slice = new SyncSliceIterator<TestItService>("Test Me", serverMember1, Arrays.asList(serverMember1, serverMember2), commsA);
+            var countdown = new CountDownLatch(1);
+            slice.iterate((link, member) -> link.ping(Any.getDefaultInstance()), (result, comms, member) -> true, () -> {
+                countdown.countDown();
+            }, Executors.newScheduledThreadPool(1, Thread.ofVirtual().factory()), Duration.ofMillis(1));
+            boolean finished = countdown.await(3, TimeUnit.SECONDS);
+            assertTrue(finished, "completed: " + countdown.getCount());
+            assertTrue(pinged1.get());
+            assertTrue(pinged2.get());
+        } finally {
+            router.close(Duration.ofSeconds(10));
+        }
     }
 }

@@ -1,31 +1,34 @@
 /*
- * Copyright (c) 2020, salesforce.com, inc.
- * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Copyright (c) 2023. Hal Hildebrand, All Rights Reserved.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  */
+
 package com.hellblazer.rbc.comms;
 
 import com.codahale.metrics.Timer.Context;
 import com.google.protobuf.Empty;
 import com.hellblazer.archipelago.RoutableService;
-import com.hellblazer.rbc.RbcMetrics;
-import com.hellblazer.rbc.ReliableBroadcaster;
 import com.hellblazer.archipelago.protocols.ClientIdentity;
 import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.messaging.proto.MessageBff;
 import com.hellblazer.messaging.proto.RBCGrpc;
 import com.hellblazer.messaging.proto.Reconcile;
 import com.hellblazer.messaging.proto.ReconcileContext;
+import com.hellblazer.rbc.RbcMetrics;
+import com.hellblazer.rbc.ReliableBroadcaster;
 import io.grpc.stub.StreamObserver;
 
 /**
  * @author hal.hildebrand
+ *
  */
 public class RbcServer extends RBCGrpc.RBCImplBase {
+    private       ClientIdentity identity;
     private final RbcMetrics                                   metrics;
     private final RoutableService<ReliableBroadcaster.Service> routing;
-    private       ClientIdentity                               identity;
 
     public RbcServer(ClientIdentity identity, RbcMetrics metrics, RoutableService<ReliableBroadcaster.Service> r) {
         this.metrics = metrics;

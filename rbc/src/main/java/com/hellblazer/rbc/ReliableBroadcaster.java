@@ -1,32 +1,32 @@
 /*
- * Copyright (c) 2021, salesforce.com, inc.
- * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Copyright (c) 2023. Hal Hildebrand, All Rights Reserved.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  */
+
 package com.hellblazer.rbc;
 
 import com.codahale.metrics.Timer;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.hellblazer.archipelago.Router;
 import com.hellblazer.archipelago.RouterImpl;
-import com.hellblazer.archipelago.Utils;
 import com.hellblazer.archipelago.membership.Context;
 import com.hellblazer.archipelago.membership.Member;
 import com.hellblazer.archipelago.membership.SigningMember;
-import com.hellblazer.rbc.comms.RbcServer;
-import com.hellblazer.rbc.comms.ReliableBroadcast;
-import com.hellblazer.archipelago.ring.RingCommunications;
+import com.hellblazer.archipelago.ring.SyncRingCommunications;
 import com.hellblazer.cryptography.Entropy;
 import com.hellblazer.cryptography.JohnHancock;
 import com.hellblazer.cryptography.bloomFilters.BloomFilter;
 import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.cryptography.hash.DigestAlgorithm;
 import com.hellblazer.messaging.proto.*;
+import com.hellblazer.rbc.comms.RbcServer;
+import com.hellblazer.rbc.comms.ReliableBroadcast;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,26 +56,24 @@ public class ReliableBroadcaster {
     private final        Map<UUID, MessageHandler>                                   channelHandlers = new ConcurrentHashMap<>();
     private final        RouterImpl.CommonCommunications<ReliableBroadcast, Service> comm;
     private final        Context<Member>                                             context;
-    private final        Executor                                                    exec;
-    private final        RingCommunications<Member, ReliableBroadcast>               gossiper;
+    private final        SyncRingCommunications<Member, ReliableBroadcast>           gossiper;
     private final        SigningMember                                               member;
     private final        RbcMetrics                                                  metrics;
     private final        Parameters                                                  params;
     private final        Map<UUID, Consumer<Integer>>                                roundListeners  = new ConcurrentHashMap<>();
     private final        AtomicBoolean                                               started         = new AtomicBoolean();
 
-    public ReliableBroadcaster(Context<Member> context, SigningMember member, Parameters parameters, Executor exec,
+    public ReliableBroadcaster(Context<Member> context, SigningMember member, Parameters parameters,
                                Router communications, RbcMetrics metrics, MessageAdapter adapter) {
         this.params = parameters;
         this.context = context;
         this.member = member;
         this.metrics = metrics;
-        this.exec = exec;
         buffer = new Buffer(context.timeToLive() + 1);
         this.comm = communications.create(member, context.getId(), new Service(),
                                           r -> new RbcServer(communications.getClientIdentityProvider(), metrics, r),
                                           getCreate(metrics), ReliableBroadcast.getLocalLoopback(member));
-        gossiper = new RingCommunications<>(context, member, this.comm, exec);
+        gossiper = new SyncRingCommunications<>(context, member, this.comm);
         this.adapter = adapter;
     }
 
@@ -213,7 +211,7 @@ public class ReliableBroadcaster {
         });
     }
 
-    private ListenableFuture<Reconcile> gossipRound(ReliableBroadcast link, int ring) {
+    private Reconcile gossipRound(ReliableBroadcast link, int ring) {
         if (!started.get()) {
             return null;
         }
@@ -229,24 +227,15 @@ public class ReliableBroadcaster {
         }
     }
 
-    private void handle(Optional<ListenableFuture<Reconcile>> futureSailor,
-                        RingCommunications.Destination<Member, ReliableBroadcast> destination, Duration duration,
+    private void handle(Optional<Reconcile> result,
+                        SyncRingCommunications.Destination<Member, ReliableBroadcast> destination, Duration duration,
                         ScheduledExecutorService scheduler, Timer.Context timer) {
         try {
-            if (futureSailor.isEmpty()) {
-                if (timer != null) {
-                    timer.stop();
-                }
-                return;
-            }
             Reconcile gossip;
             try {
-                gossip = futureSailor.get().get();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (ExecutionException e) {
-                log.debug("error gossiping with {} on: {}", destination.member().getId(), member.getId(), e.getCause());
+                gossip = result.get();
+            } catch (NoSuchElementException e) {
+                log.debug("null gossiping with {} on: {}", destination.member().getId(), member.getId(), e.getCause());
                 return;
             }
             buffer.receive(gossip.getUpdatesList());
@@ -284,12 +273,9 @@ public class ReliableBroadcaster {
             return;
         }
 
-        exec.execute(() -> {
-            var timer = metrics == null ? null : metrics.gossipRoundDuration().time();
-            gossiper.execute((link, ring) -> gossipRound(link, ring),
-                             (futureSailor, destination) -> handle(futureSailor, destination, duration, scheduler,
-                                                                   timer));
-        });
+        var timer = metrics == null ? null : metrics.gossipRoundDuration().time();
+        gossiper.execute((link, ring) -> gossipRound(link, ring),
+                         (futureSailor, destination) -> handle(futureSailor, destination, duration, scheduler, timer));
     }
 
     @FunctionalInterface
@@ -379,6 +365,7 @@ public class ReliableBroadcaster {
                 return this;
             }
         }
+
     }
 
     private record state(Digest hash, AgedMessage.Builder msg) {
@@ -435,6 +422,7 @@ public class ReliableBroadcaster {
             var biff = new BloomFilter.DigestBloomFilter(Entropy.nextBitsStreamLong(), params.bufferSize,
                                                          params.falsePositiveRate);
             state.keySet().forEach(k -> biff.add(k));
+            log.debug("for reconciliation:{} on: {}", state.size(), member);
             return biff;
         }
 
@@ -535,28 +523,24 @@ public class ReliableBroadcaster {
             if ((size() < highWaterMark) || !garbageCollecting.tryAcquire()) {
                 return;
             }
-            exec.execute(Utils.wrapped(() -> {
-                try {
-                    int startSize = state.size();
-                    if (startSize < highWaterMark) {
-                        return;
-                    }
-                    log.trace("Compacting buffer: {} size: {} on: {}", context.getId(), startSize, member.getId());
-                    purgeTheAged();
-                    if (buffer.size() > params.bufferSize) {
-                        log.warn("Buffer overflow: {} > {} after compact for: {} on: {} ", buffer.size(),
-                                 params.bufferSize, context.getId(), member);
-                    }
-                    int freed = startSize - state.size();
-                    if (freed > 0) {
-                        log.debug("Buffer freed: {} after compact for: {} on: {} ", freed, context.getId(),
-                                  member.getId());
-                    }
-                } finally {
-                    garbageCollecting.release();
+            try {
+                int startSize = state.size();
+                if (startSize < highWaterMark) {
+                    return;
                 }
-            }, log));
-
+                log.trace("Compacting buffer: {} size: {} on: {}", context.getId(), startSize, member.getId());
+                purgeTheAged();
+                if (buffer.size() > params.bufferSize) {
+                    log.warn("Buffer overflow: {} > {} after compact for: {} on: {} ", buffer.size(), params.bufferSize,
+                             context.getId(), member);
+                }
+                int freed = startSize - state.size();
+                if (freed > 0) {
+                    log.debug("Buffer freed: {} after compact for: {} on: {} ", freed, context.getId(), member.getId());
+                }
+            } finally {
+                garbageCollecting.release();
+            }
         }
 
         private void purgeTheAged() {

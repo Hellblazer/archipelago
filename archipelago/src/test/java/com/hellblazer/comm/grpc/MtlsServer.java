@@ -34,8 +34,10 @@ import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.Security;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author hal.hildebrand
@@ -80,27 +82,21 @@ public class MtlsServer implements ClientIdentity {
 
     public static SslContext forClient(ClientAuth clientAuth, String alias, X509Certificate certificate,
                                        PrivateKey privateKey, CertificateValidator validator) {
-        SslContextBuilder builder = SslContextBuilder.forClient()
-                                                     .sslContextProvider(PROVIDER_JSSE)
-                                                     .keyManager(
-                                                     new NodeKeyManagerFactory(alias, certificate, privateKey,
-                                                                               PROVIDER_JSSE));
+        SslContextBuilder builder = SslContextBuilder.forClient().sslContextProvider(PROVIDER_JSSE).keyManager(
+        new NodeKeyManagerFactory(alias, certificate, privateKey, PROVIDER_JSSE));
         GrpcSslContexts.configure(builder, SslProvider.JDK);
-        builder.protocols(TL_SV1_3)
-               .sslContextProvider(PROVIDER_JSSE)
-               .trustManager(new NodeTrustManagerFactory(validator, PROVIDER_JSSE))
-               .clientAuth(clientAuth)
-               .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
-                                                                        // NO_ADVERTISE is currently the only mode
-                                                                        // supported by both OpenSsl and JDK
-                                                                        // providers.
-                                                                        SelectorFailureBehavior.NO_ADVERTISE,
-                                                                        // ACCEPT is currently the only mode supported
-                                                                        // by both OpenSsl and JDK
-                                                                        // providers.
-                                                                        SelectedListenerFailureBehavior.ACCEPT,
-                                                                        ApplicationProtocolNames.HTTP_2,
-                                                                        ApplicationProtocolNames.HTTP_1_1));
+        builder.protocols(TL_SV1_3).sslContextProvider(PROVIDER_JSSE).trustManager(
+        new NodeTrustManagerFactory(validator, PROVIDER_JSSE)).clientAuth(clientAuth).applicationProtocolConfig(
+        new ApplicationProtocolConfig(Protocol.ALPN,
+                                      // NO_ADVERTISE is currently the only mode
+                                      // supported by both OpenSsl and JDK
+                                      // providers.
+                                      SelectorFailureBehavior.NO_ADVERTISE,
+                                      // ACCEPT is currently the only mode supported
+                                      // by both OpenSsl and JDK
+                                      // providers.
+                                      SelectedListenerFailureBehavior.ACCEPT, ApplicationProtocolNames.HTTP_2,
+                                      ApplicationProtocolNames.HTTP_1_1));
         try {
             return builder.build();
         } catch (SSLException e) {
@@ -114,21 +110,18 @@ public class MtlsServer implements ClientIdentity {
         SslContextBuilder builder = SslContextBuilder.forServer(
         new NodeKeyManagerFactory(alias, certificate, privateKey, PROVIDER_JSSE));
         GrpcSslContexts.configure(builder, SslProvider.JDK);
-        builder.protocols(TL_SV1_3)
-               .sslContextProvider(PROVIDER_JSSE)
-               .trustManager(new NodeTrustManagerFactory(validator, PROVIDER_JSSE))
-               .clientAuth(clientAuth)
-               .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
-                                                                        // NO_ADVERTISE is currently the only mode
-                                                                        // supported by both OpenSsl and JDK
-                                                                        // providers.
-                                                                        SelectorFailureBehavior.NO_ADVERTISE,
-                                                                        // ACCEPT is currently the only mode supported
-                                                                        // by both OpenSsl and JDK
-                                                                        // providers.
-                                                                        SelectedListenerFailureBehavior.ACCEPT,
-                                                                        ApplicationProtocolNames.HTTP_2,
-                                                                        ApplicationProtocolNames.HTTP_1_1));
+        builder.protocols(TL_SV1_3).sslContextProvider(PROVIDER_JSSE).trustManager(
+        new NodeTrustManagerFactory(validator, PROVIDER_JSSE)).clientAuth(clientAuth).applicationProtocolConfig(
+        new ApplicationProtocolConfig(Protocol.ALPN,
+                                      // NO_ADVERTISE is currently the only mode
+                                      // supported by both OpenSsl and JDK
+                                      // providers.
+                                      SelectorFailureBehavior.NO_ADVERTISE,
+                                      // ACCEPT is currently the only mode supported
+                                      // by both OpenSsl and JDK
+                                      // providers.
+                                      SelectedListenerFailureBehavior.ACCEPT, ApplicationProtocolNames.HTTP_2,
+                                      ApplicationProtocolNames.HTTP_1_1));
         try {
             return builder.build();
         } catch (SSLException e) {
@@ -154,8 +147,9 @@ public class MtlsServer implements ClientIdentity {
         server.start();
     }
 
-    public void stop() {
+    public void stop(Duration timeOut) throws InterruptedException {
         server.shutdownNow();
+        server.awaitTermination(timeOut.toNanos(), TimeUnit.NANOSECONDS);
     }
 
     private X509Certificate getCert() {

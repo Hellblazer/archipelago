@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2020, salesforce.com, inc.
- * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Copyright (c) 2023. Hal Hildebrand, All Rights Reserved.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  */
+
 package com.hellblazer.rbc.comms;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.hellblazer.archipelago.Link;
 import com.hellblazer.archipelago.membership.Member;
 import com.hellblazer.archipelago.membership.SigningMember;
@@ -34,7 +35,7 @@ public interface ReliableBroadcast extends Link {
             }
 
             @Override
-            public ListenableFuture<Reconcile> gossip(MessageBff bff) {
+            public Reconcile gossip(MessageBff bff) {
                 return null;
             }
 
@@ -44,7 +45,7 @@ public interface ReliableBroadcast extends Link {
         };
     }
 
-    ListenableFuture<Reconcile> gossip(MessageBff bff);
+    Reconcile gossip(MessageBff bff);
 
     void update(ReconcileContext push);
 
