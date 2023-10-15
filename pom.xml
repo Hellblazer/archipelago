@@ -126,16 +126,6 @@
                 <version>${grpc.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.hellblazer</groupId>
-                <artifactId>domain-epoll</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.hellblazer</groupId>
-                <artifactId>domain-kqueue</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>io.dropwizard</groupId>
                 <artifactId>dropwizard-dependencies</artifactId>
                 <version>${dropwizard.version}</version>
