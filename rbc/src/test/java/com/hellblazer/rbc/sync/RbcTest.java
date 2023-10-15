@@ -67,11 +67,8 @@ public class RbcTest {
     public void broadcast() throws Exception {
         MetricRegistry registry = new MetricRegistry();
 
-        List<SigningMember> members = IntStream.range(0, 4)
-                                               .mapToObj(i -> Utils.getMember(i))
-                                               .map(cpk -> new SigningMemberImpl(cpk))
-                                               .map(e -> (SigningMember) e)
-                                               .toList();
+        List<SigningMember> members = IntStream.range(0, 100).mapToObj(i -> Utils.getMember(i)).map(
+        cpk -> new SigningMemberImpl(cpk)).map(e -> (SigningMember) e).toList();
 
         Context<Member> context = Context.newBuilder().setCardinality(members.size()).build();
         RbcMetrics metrics = new RbcMetricsImpl(context.getId(), "test", registry);
@@ -158,7 +155,6 @@ public class RbcTest {
                 }
                 assert buf.remaining() > 4 : "buffer: " + buf.remaining();
                 final var index = buf.getInt();
-                System.out.println("received: %s from: %s".formatted(index, m.source()));
                 if (index == current.get() + 1) {
                     if (counted.add(m.source().get(0))) {
                         int totalCount = totalReceived.incrementAndGet();

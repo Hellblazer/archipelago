@@ -27,7 +27,6 @@ import com.hellblazer.archipelago.ring.SyncRingCommunications;
 import com.hellblazer.cryptography.Entropy;
 import com.hellblazer.cryptography.JohnHancock;
 import com.hellblazer.cryptography.bloomFilters.BloomFilter;
-import com.hellblazer.cryptography.bloomFilters.BloomWindow;
 import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.cryptography.hash.DigestAlgorithm;
 import com.hellblazer.messaging.proto.*;
@@ -210,7 +209,10 @@ public class ReliableBroadcaster {
         if (current == null) {
             return;
         }
-        log.debug("Delivering: {} msgs for context: {} on: {} ", newMsgs.size(), context.getId(), member.getId());
+        if (log.isDebugEnabled()) {
+            log.debug("Delivering: {} for context: {} on: {} ", newMsgs.stream().map(m -> m.hash).toList(),
+                      context.getId(), member.getId());
+        }
         try {
             current.message(context.getId(), newMsgs);
         } catch (Throwable e) {
@@ -222,8 +224,8 @@ public class ReliableBroadcaster {
         if (!started.get()) {
             return null;
         }
-        log.trace("rbc gossiping[{}] from {} with {} on {}", buffer.round(), member.getId(), link.getMember().getId(),
-                  ring);
+        //        log.trace("rbc gossiping[{}] from {} with {} on {}", buffer.round(), member.getId(), link.getMember().getId(),
+        //                  ring);
         try {
             return link.gossip(MessageBff.newBuilder()
                                          .setRing(ring)
@@ -263,11 +265,6 @@ public class ReliableBroadcaster {
                 timer.stop();
             }
             if (started.get()) {
-                try {
-                    scheduler.schedule(() -> oneRound(duration, scheduler), duration.toNanos(), TimeUnit.NANOSECONDS);
-                } catch (RejectedExecutionException e) {
-                    return;
-                }
                 buffer.tick();
                 if (roundListener != null) {
                     int gossipRound = buffer.round();
@@ -276,6 +273,11 @@ public class ReliableBroadcaster {
                     } catch (Throwable e) {
                         log.error("error sending round() to listener on: {}", member.getId(), e);
                     }
+                }
+                try {
+                    scheduler.schedule(() -> oneRound(duration, scheduler), duration.toNanos(), TimeUnit.NANOSECONDS);
+                } catch (RejectedExecutionException e) {
+                    return;
                 }
             }
         }
@@ -413,21 +415,18 @@ public class ReliableBroadcaster {
     }
 
     private class Buffer {
-        private final BloomWindow<Digest> delivered;
-        private final Semaphore           garbageCollecting = new Semaphore(1);
-        private final int                 highWaterMark;
-        private final int                 maxAge;
-        private final AtomicInteger       round             = new AtomicInteger();
-        private final Map<Digest, state>  state             = new ConcurrentHashMap<>();
-        private final Semaphore           tickGate          = new Semaphore(1);
+        private final DigestWindow       delivered;
+        private final Semaphore          garbageCollecting = new Semaphore(1);
+        private final int                highWaterMark;
+        private final int                maxAge;
+        private final AtomicInteger      round             = new AtomicInteger();
+        private final Map<Digest, state> state             = new ConcurrentHashMap<>();
+        private final Semaphore          tickGate          = new Semaphore(1);
 
         public Buffer(int maxAge) {
             this.maxAge = maxAge;
             highWaterMark = (params.bufferSize - (int) (params.bufferSize + ((params.bufferSize) * 0.1)));
-            delivered = new BloomWindow<>(params.deliveredCacheSize,
-                                          () -> new BloomFilter.DigestBloomFilter(Entropy.nextBitsStreamLong(),
-                                                                                  highWaterMark,
-                                                                                  params.falsePositiveRate()), 3);
+            delivered = new DigestWindow(params.deliveredCacheSize, 3);
         }
 
         public void clear() {
