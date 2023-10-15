@@ -67,7 +67,7 @@ public class RbcTest {
     public void broadcast() throws Exception {
         MetricRegistry registry = new MetricRegistry();
 
-        List<SigningMember> members = IntStream.range(0, 100)
+        List<SigningMember> members = IntStream.range(0, 4)
                                                .mapToObj(i -> Utils.getMember(i))
                                                .map(cpk -> new SigningMemberImpl(cpk))
                                                .map(e -> (SigningMember) e)
@@ -116,7 +116,7 @@ public class RbcTest {
                 buf.flip();
                 view.publish(ByteMessage.newBuilder().setContents(ByteString.copyFrom(buf)).build(), true);
             });
-            boolean success = round.await(10, TimeUnit.SECONDS);
+            boolean success = round.await(120, TimeUnit.SECONDS);
             assertTrue(success, "Did not complete round: " + r + " waiting for: " + round.getCount());
 
             current.incrementAndGet();

@@ -59,10 +59,12 @@ public class MemberImpl implements Member {
     @Override
     // The id of a member uniquely identifies it
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if ((obj == null) || !(obj instanceof Member))
+        }
+        if ((obj == null) || !(obj instanceof Member)) {
             return false;
+        }
         return id.equals(((Member) obj).getId());
     }
 
@@ -93,6 +95,6 @@ public class MemberImpl implements Member {
      */
     @Override
     public boolean verify(JohnHancock signature, InputStream message) {
-        return new DefaultVerifier(new PublicKey[] { signingKey }).verify(signature, message);
+        return new DefaultVerifier(signingKey).verify(signature, message);
     }
 }
