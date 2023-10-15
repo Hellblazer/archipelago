@@ -19,7 +19,9 @@ import io.netty.handler.ssl.ClientAuth;
 import java.net.SocketAddress;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author hal.hildebrand
@@ -61,7 +63,8 @@ public class MtlsClient {
         return channel;
     }
 
-    public void stop() {
+    public void stop(Duration waitTime) throws InterruptedException {
         channel.shutdown();
+        channel.awaitTermination(Duration.ZERO.toNanos(), TimeUnit.NANOSECONDS);
     }
 }

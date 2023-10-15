@@ -3,30 +3,35 @@
  * All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ *
+ * Copyright (c) 2023. Hal Hildebrand, All Rights Reserved.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  */
+
 package com.hellblazer.rbc;
 
 import com.codahale.metrics.Timer;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.hellblazer.archipelago.Router;
 import com.hellblazer.archipelago.RouterImpl;
-import com.hellblazer.archipelago.Utils;
 import com.hellblazer.archipelago.membership.Context;
 import com.hellblazer.archipelago.membership.Member;
 import com.hellblazer.archipelago.membership.SigningMember;
-import com.hellblazer.rbc.comms.RbcServer;
-import com.hellblazer.rbc.comms.ReliableBroadcast;
-import com.hellblazer.archipelago.ring.RingCommunications;
+import com.hellblazer.archipelago.ring.SyncRingCommunications;
 import com.hellblazer.cryptography.Entropy;
 import com.hellblazer.cryptography.JohnHancock;
 import com.hellblazer.cryptography.bloomFilters.BloomFilter;
 import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.cryptography.hash.DigestAlgorithm;
 import com.hellblazer.messaging.proto.*;
+import com.hellblazer.rbc.comms.RbcServer;
+import com.hellblazer.rbc.comms.ReliableBroadcast;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,33 +54,31 @@ import static com.hellblazer.rbc.comms.RbcClient.getCreate;
  */
 public class ReliableBroadcaster {
 
-    private static final Logger                                                      log             = LoggerFactory.getLogger(
+    private static final Logger                                                      log     = LoggerFactory.getLogger(
     ReliableBroadcaster.class);
     private final        MessageAdapter                                              adapter;
     private final        Buffer                                                      buffer;
-    private final        Map<UUID, MessageHandler>                                   channelHandlers = new ConcurrentHashMap<>();
     private final        RouterImpl.CommonCommunications<ReliableBroadcast, Service> comm;
     private final        Context<Member>                                             context;
-    private final        Executor                                                    exec;
-    private final        RingCommunications<Member, ReliableBroadcast>               gossiper;
+    private final        SyncRingCommunications<Member, ReliableBroadcast>           gossiper;
     private final        SigningMember                                               member;
     private final        RbcMetrics                                                  metrics;
     private final        Parameters                                                  params;
-    private final        Map<UUID, Consumer<Integer>>                                roundListeners  = new ConcurrentHashMap<>();
-    private final        AtomicBoolean                                               started         = new AtomicBoolean();
+    private final        AtomicBoolean                                               started = new AtomicBoolean();
+    private volatile     Consumer<Integer>                                           roundListener;
+    private volatile     MessageHandler                                              channelHandler;
 
-    public ReliableBroadcaster(Context<Member> context, SigningMember member, Parameters parameters, Executor exec,
+    public ReliableBroadcaster(Context<Member> context, SigningMember member, Parameters parameters,
                                Router communications, RbcMetrics metrics, MessageAdapter adapter) {
         this.params = parameters;
         this.context = context;
         this.member = member;
         this.metrics = metrics;
-        this.exec = exec;
         buffer = new Buffer(context.timeToLive() + 1);
         this.comm = communications.create(member, context.getId(), new Service(),
                                           r -> new RbcServer(communications.getClientIdentityProvider(), metrics, r),
                                           getCreate(metrics), ReliableBroadcast.getLocalLoopback(member));
-        gossiper = new RingCommunications<>(context, member, this.comm, exec);
+        gossiper = new SyncRingCommunications<>(context, member, this.comm);
         this.adapter = adapter;
     }
 
@@ -103,8 +106,9 @@ public class ReliableBroadcaster {
         };
         Function<Any, List<Digest>> source = any -> {
             try {
-                return Collections.singletonList(
-                Digest.from(any.unpack(SignedDefaultMessage.class).getContent().getSource()));
+                return Collections.singletonList(Digest.from(any.unpack(SignedDefaultMessage.class)
+                                                                .getContent()
+                                                                .getSource()));
             } catch (InvalidProtocolBufferException e) {
                 throw new IllegalStateException("Cannot unwrap", e);
             }
@@ -116,8 +120,10 @@ public class ReliableBroadcaster {
                                          .setSource(m.getId().toDigeste())
                                          .setContent(any)
                                          .build();
-            return Any.pack(
-            SignedDefaultMessage.newBuilder().setContent(dm).setSignature(m.sign(dm.toByteString()).toSig()).build());
+            return Any.pack(SignedDefaultMessage.newBuilder()
+                                                .setContent(dm)
+                                                .setSignature(m.sign(dm.toByteString()).toSig())
+                                                .build());
         };
         Function<AgedMessageOrBuilder, Any> extractor = am -> {
             try {
@@ -159,24 +165,20 @@ public class ReliableBroadcaster {
         }
     }
 
-    public UUID register(Consumer<Integer> roundListener) {
-        UUID reg = UUID.randomUUID();
-        roundListeners.put(reg, roundListener);
-        return reg;
+    public void register(Consumer<Integer> roundListener) {
+        this.roundListener = roundListener;
     }
 
-    public UUID registerHandler(MessageHandler listener) {
-        UUID reg = UUID.randomUUID();
-        channelHandlers.put(reg, listener);
-        return reg;
+    public void registerHandler(MessageHandler listener) {
+        channelHandler = listener;
     }
 
-    public void removeHandler(UUID registration) {
-        channelHandlers.remove(registration);
+    public void removeHandler() {
+        channelHandler = null;
     }
 
-    public void removeRoundListener(UUID registration) {
-        roundListeners.remove(registration);
+    public void removeRoundListener() {
+        roundListener = null;
     }
 
     public void start(Duration duration, ScheduledExecutorService scheduler) {
@@ -203,25 +205,32 @@ public class ReliableBroadcaster {
         if (newMsgs.isEmpty()) {
             return;
         }
-        log.debug("Delivering: {} msgs for context: {} on: {} ", newMsgs.size(), context.getId(), member.getId());
-        channelHandlers.values().forEach(handler -> {
-            try {
-                handler.message(context.getId(), newMsgs);
-            } catch (Throwable e) {
-                log.warn("Error in message handler on: {}", member.getId(), e);
-            }
-        });
+        final var current = channelHandler;
+        if (current == null) {
+            return;
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("Delivering: {} for context: {} on: {} ", newMsgs.stream().map(m -> m.hash).toList(),
+                      context.getId(), member.getId());
+        }
+        try {
+            current.message(context.getId(), newMsgs);
+        } catch (Throwable e) {
+            log.warn("Error in message handler on: {}", member.getId(), e);
+        }
     }
 
-    private ListenableFuture<Reconcile> gossipRound(ReliableBroadcast link, int ring) {
+    private Reconcile gossipRound(ReliableBroadcast link, int ring) {
         if (!started.get()) {
             return null;
         }
-        log.trace("rbc gossiping[{}] from {} with {} on {}", buffer.round(), member.getId(), link.getMember().getId(),
-                  ring);
+        //        log.trace("rbc gossiping[{}] from {} with {} on {}", buffer.round(), member.getId(), link.getMember().getId(),
+        //                  ring);
         try {
-            return link.gossip(
-            MessageBff.newBuilder().setRing(ring).setDigests(buffer.forReconciliation().toBff()).build());
+            return link.gossip(MessageBff.newBuilder()
+                                         .setRing(ring)
+                                         .setDigests(buffer.forReconciliation().toBff())
+                                         .build());
         } catch (Throwable e) {
             log.trace("rbc gossiping[{}] failed from {} with {} on {}", buffer.round(), member.getId(),
                       link.getMember().getId(), ring, e);
@@ -229,52 +238,47 @@ public class ReliableBroadcaster {
         }
     }
 
-    private void handle(Optional<ListenableFuture<Reconcile>> futureSailor,
-                        RingCommunications.Destination<Member, ReliableBroadcast> destination, Duration duration,
+    private void handle(Optional<Reconcile> result,
+                        SyncRingCommunications.Destination<Member, ReliableBroadcast> destination, Duration duration,
                         ScheduledExecutorService scheduler, Timer.Context timer) {
         try {
-            if (futureSailor.isEmpty()) {
-                if (timer != null) {
-                    timer.stop();
-                }
-                return;
-            }
             Reconcile gossip;
             try {
-                gossip = futureSailor.get().get();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (ExecutionException e) {
-                log.debug("error gossiping with {} on: {}", destination.member().getId(), member.getId(), e.getCause());
+                gossip = result.get();
+            } catch (NoSuchElementException e) {
+                log.debug("null gossiping with {} on: {}", destination.member().getId(), member.getId(), e.getCause());
                 return;
             }
+            if (!gossip.getUpdatesList().isEmpty()) {
+                log.debug("Received: {} updates from: {} on: {}", gossip.getUpdatesList().size(),
+                          destination.member().getId(), member.getId());
+            }
             buffer.receive(gossip.getUpdatesList());
-            destination.link()
-                       .update(ReconcileContext.newBuilder()
-                                               .setRing(destination.ring())
-                                               .addAllUpdates(buffer.reconcile(BloomFilter.from(gossip.getDigests()),
-                                                                               destination.member().getId()))
-                                               .build());
+            destination.link().update(ReconcileContext.newBuilder()
+                                                      .setRing(destination.ring())
+                                                      .addAllUpdates(
+                                                      buffer.reconcile(BloomFilter.from(gossip.getDigests()),
+                                                                       destination.member().getId()))
+                                                      .build());
         } finally {
             if (timer != null) {
                 timer.stop();
             }
             if (started.get()) {
-                try {
-                    scheduler.schedule(() -> oneRound(duration, scheduler), duration.toMillis(), TimeUnit.MILLISECONDS);
-                } catch (RejectedExecutionException e) {
-                    return;
-                }
                 buffer.tick();
-                int gossipRound = buffer.round();
-                roundListeners.values().forEach(l -> {
+                if (roundListener != null) {
+                    int gossipRound = buffer.round();
                     try {
-                        l.accept(gossipRound);
+                        roundListener.accept(gossipRound);
                     } catch (Throwable e) {
                         log.error("error sending round() to listener on: {}", member.getId(), e);
                     }
-                });
+                }
+                try {
+                    scheduler.schedule(() -> oneRound(duration, scheduler), duration.toNanos(), TimeUnit.NANOSECONDS);
+                } catch (RejectedExecutionException e) {
+                    return;
+                }
             }
         }
     }
@@ -284,12 +288,9 @@ public class ReliableBroadcaster {
             return;
         }
 
-        exec.execute(() -> {
-            var timer = metrics == null ? null : metrics.gossipRoundDuration().time();
-            gossiper.execute((link, ring) -> gossipRound(link, ring),
-                             (futureSailor, destination) -> handle(futureSailor, destination, duration, scheduler,
-                                                                   timer));
-        });
+        var timer = metrics == null ? null : metrics.gossipRoundDuration().time();
+        gossiper.execute((link, ring) -> gossipRound(link, ring),
+                         (futureSailor, destination) -> handle(futureSailor, destination, duration, scheduler, timer));
     }
 
     @FunctionalInterface
@@ -379,6 +380,7 @@ public class ReliableBroadcaster {
                 return this;
             }
         }
+
     }
 
     private record state(Digest hash, AgedMessage.Builder msg) {
@@ -435,6 +437,9 @@ public class ReliableBroadcaster {
             var biff = new BloomFilter.DigestBloomFilter(Entropy.nextBitsStreamLong(), params.bufferSize,
                                                          params.falsePositiveRate);
             state.keySet().forEach(k -> biff.add(k));
+            if (state.size() > 0) {
+                log.debug("for reconciliation:{} on: {}", state.size(), member);
+            }
             return biff;
         }
 
@@ -442,7 +447,7 @@ public class ReliableBroadcaster {
             if (messages.size() == 0) {
                 return;
             }
-            log.trace("receiving: {} msgs on: {}", messages.size(), member);
+            log.debug("receiving: {} msgs on: {}", messages.size(), member);
             deliver(messages.stream()
                             .limit(params.maxMessages)
                             .map(am -> new state(adapter.hasher.apply(am.getContent()), AgedMessage.newBuilder(am)))
@@ -458,14 +463,11 @@ public class ReliableBroadcaster {
 
         public Iterable<? extends AgedMessage> reconcile(BloomFilter<Digest> biff, Digest from) {
             PriorityQueue<AgedMessage.Builder> mailBox = new PriorityQueue<>(Comparator.comparingInt(s -> s.getAge()));
-            state.values()
-                 .stream()
-                 .filter(s -> !biff.contains(s.hash))
-                 .filter(s -> s.msg.getAge() < maxAge)
-                 .forEach(s -> mailBox.add(s.msg));
+            state.values().stream().filter(s -> !biff.contains(s.hash)).filter(s -> s.msg.getAge() < maxAge).forEach(
+            s -> mailBox.add(s.msg));
             List<AgedMessage> reconciled = mailBox.stream().limit(params.maxMessages).map(b -> b.build()).toList();
             if (!reconciled.isEmpty()) {
-                log.trace("reconciled: {} for: {} on: {}", reconciled.size(), from, member);
+                log.debug("reconciled: {} for: {} on: {}", reconciled.size(), from, member);
             }
             return reconciled;
         }
@@ -478,8 +480,10 @@ public class ReliableBroadcaster {
             AgedMessage.Builder message = AgedMessage.newBuilder().setContent(adapter.wrapper.apply(member, msg));
             var hash = adapter.hasher.apply(message.getContent());
             state s = new state(hash, message);
-            state.put(hash, s);
-            log.trace("Send message:{} on: {}", hash, member);
+            if (state.put(hash, s) == null) {
+                log.debug("Add message:{} to state[{}] on: {}", hash, state.size(), member);
+            }
+            log.debug("Send message:{} on: {}", hash, member);
             return s.msg.build();
         }
 
@@ -513,7 +517,7 @@ public class ReliableBroadcaster {
 
         private boolean dup(state s) {
             if (s.msg.getAge() > maxAge) {
-                log.trace("Rejecting message too old: {} age: {} > {} on: {}", s.hash, s.msg.getAge(), maxAge,
+                log.debug("Rejecting message too old: {} age: {} > {} on: {}", s.hash, s.msg.getAge(), maxAge,
                           member.getId());
                 return true;
             }
@@ -525,38 +529,36 @@ public class ReliableBroadcaster {
                 } else if (previous.msg.getAge() != nextAge) {
                     previous.msg().setAge(nextAge);
                 }
-                log.trace("duplicate event: {} on: {}", s.hash, member.getId());
+                log.debug("duplicate event: {} on: {}", s.hash, member.getId());
                 return true;
             }
-            return delivered.contains(s.hash);
+            final var contains = delivered.contains(s.hash);
+            log.debug("received event: {} delivered: {} on: {}", s.hash, contains, member.getId());
+            return contains;
         }
 
         private void gc() {
             if ((size() < highWaterMark) || !garbageCollecting.tryAcquire()) {
                 return;
             }
-            exec.execute(Utils.wrapped(() -> {
-                try {
-                    int startSize = state.size();
-                    if (startSize < highWaterMark) {
-                        return;
-                    }
-                    log.trace("Compacting buffer: {} size: {} on: {}", context.getId(), startSize, member.getId());
-                    purgeTheAged();
-                    if (buffer.size() > params.bufferSize) {
-                        log.warn("Buffer overflow: {} > {} after compact for: {} on: {} ", buffer.size(),
-                                 params.bufferSize, context.getId(), member);
-                    }
-                    int freed = startSize - state.size();
-                    if (freed > 0) {
-                        log.debug("Buffer freed: {} after compact for: {} on: {} ", freed, context.getId(),
-                                  member.getId());
-                    }
-                } finally {
-                    garbageCollecting.release();
+            try {
+                int startSize = state.size();
+                if (startSize < highWaterMark) {
+                    return;
                 }
-            }, log));
-
+                log.trace("Compacting buffer: {} size: {} on: {}", context.getId(), startSize, member.getId());
+                purgeTheAged();
+                if (buffer.size() > params.bufferSize) {
+                    log.warn("Buffer overflow: {} > {} after compact for: {} on: {} ", buffer.size(), params.bufferSize,
+                             context.getId(), member);
+                }
+                int freed = startSize - state.size();
+                if (freed > 0) {
+                    log.debug("Buffer freed: {} after compact for: {} on: {} ", freed, context.getId(), member.getId());
+                }
+            } finally {
+                garbageCollecting.release();
+            }
         }
 
         private void purgeTheAged() {
@@ -575,6 +577,5 @@ public class ReliableBroadcaster {
                 }
             }
         }
-
     }
 }

@@ -21,6 +21,7 @@
 
     <modules>
         <module>archipelago</module>
+        <module>rbc</module>
     </modules>
 
     <properties>
@@ -123,16 +124,6 @@
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-inprocess</artifactId>
                 <version>${grpc.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.hellblazer</groupId>
-                <artifactId>domain-epoll</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.hellblazer</groupId>
-                <artifactId>domain-kqueue</artifactId>
-                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.dropwizard</groupId>
@@ -409,12 +400,6 @@
             </activation>
             <modules>
                 <module>domain-epoll</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>rbc</id>
-            <modules>
-                <module>rbc</module>
             </modules>
         </profile>
     </profiles>

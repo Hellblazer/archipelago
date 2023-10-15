@@ -15,16 +15,16 @@
     <root level="info">
         <appender-ref ref="STDOUT"/>
     </root>
-    <logger name="com.hellblazer" level="TRACE" additivity="false">
+    <logger name="com.hellblazer" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
     <logger name="com.hellblazer.archipelago" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="com.hellblazer.archipelago.membership.rbc" level="trace" additivity="false">
+    <logger name="com.hellblazer.rbc" level="WARN" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="com.hellblazer.archipelago.membership.rbc.comms" level="INFO" additivity="false">
+    <logger name="com.hellblazer.rbc.comms" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
     <logger name="com.hellblazer.archipelago.ring" level="INFO" additivity="false">

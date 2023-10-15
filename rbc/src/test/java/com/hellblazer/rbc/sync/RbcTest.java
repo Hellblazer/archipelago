@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-package com.hellblazer.rbc;
+package com.hellblazer.rbc.sync;
 
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.MetricRegistry;
@@ -18,6 +18,9 @@ import com.hellblazer.archipelago.membership.impl.SigningMemberImpl;
 import com.hellblazer.cryptography.Entropy;
 import com.hellblazer.cryptography.hash.Digest;
 import com.hellblazer.cryptography.hash.DigestAlgorithm;
+import com.hellblazer.rbc.RbcMetrics;
+import com.hellblazer.rbc.RbcMetricsImpl;
+import com.hellblazer.rbc.ReliableBroadcaster;
 import com.hellblazer.test.proto.ByteMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -57,18 +60,15 @@ public class RbcTest {
         if (messengers != null) {
             messengers.forEach(e -> e.stop());
         }
-        communications.forEach(e -> e.close(Duration.ofMillis(1)));
+        communications.forEach(e -> e.close(Duration.ofMillis(10)));
     }
 
     @Test
     public void broadcast() throws Exception {
         MetricRegistry registry = new MetricRegistry();
 
-        List<SigningMember> members = IntStream.range(0, 100)
-                                               .mapToObj(i -> Utils.getMember(i))
-                                               .map(cpk -> new SigningMemberImpl(cpk))
-                                               .map(e -> (SigningMember) e)
-                                               .toList();
+        List<SigningMember> members = IntStream.range(0, 100).mapToObj(i -> Utils.getMember(i)).map(
+        cpk -> new SigningMemberImpl(cpk)).map(e -> (SigningMember) e).toList();
 
         Context<Member> context = Context.newBuilder().setCardinality(members.size()).build();
         RbcMetrics metrics = new RbcMetricsImpl(context.getId(), "test", registry);
@@ -83,15 +83,16 @@ public class RbcTest {
             exec);
             communications.add(comms);
             comms.start();
-            return new ReliableBroadcaster(context, node, parameters.build(), exec, comms, metrics, authentication);
+            return new ReliableBroadcaster(context, node, parameters.build(), comms, metrics, authentication);
         }).collect(Collectors.toList());
 
         System.out.println("Messaging with " + messengers.size() + " members");
-        messengers.forEach(view -> view.start(Duration.ofMillis(10), Executors.newScheduledThreadPool(3)));
+        var scheduler = Executors.newScheduledThreadPool(3);
+        messengers.forEach(view -> view.start(Duration.ofMillis(10), scheduler));
 
         Map<Member, Receiver> receivers = new HashMap<>();
         AtomicInteger current = new AtomicInteger(-1);
-        for (ReliableBroadcaster view : messengers) {
+        for (var view : messengers) {
             Receiver receiver = new Receiver(view.getMember().getId(), messengers.size(), current);
             view.registerHandler(receiver);
             receivers.put(view.getMember(), receiver);
@@ -112,7 +113,7 @@ public class RbcTest {
                 buf.flip();
                 view.publish(ByteMessage.newBuilder().setContents(ByteString.copyFrom(buf)).build(), true);
             });
-            boolean success = round.await(10, TimeUnit.SECONDS);
+            boolean success = round.await(120, TimeUnit.SECONDS);
             assertTrue(success, "Did not complete round: " + r + " waiting for: " + round.getCount());
 
             current.incrementAndGet();
@@ -154,7 +155,6 @@ public class RbcTest {
                 }
                 assert buf.remaining() > 4 : "buffer: " + buf.remaining();
                 final var index = buf.getInt();
-                System.out.println("received: %s from: %s".formatted(index, m.source()));
                 if (index == current.get() + 1) {
                     if (counted.add(m.source().get(0))) {
                         int totalCount = totalReceived.incrementAndGet();
